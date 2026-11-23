@@ -59,6 +59,8 @@ label{display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#3741
 .badge{font-size:10px;padding:2px 6px;border-radius:4px;background:#dbeafe;color:#1e40af;font-weight:600}
 .badge-red{background:#fee2e2;color:#b91c1c}.badge-grn{background:#dcfce7;color:#166534}
 .ord-card{border:1px solid #e5e7eb;border-radius:8px;padding:10px;margin-bottom:10px;font-size:12px;background:#f9fafb}
+.ord-item-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #eceff1}
+.ord-thumb{width:42px;height:42px;border-radius:6px;object-fit:cover;background:#e5e7eb;cursor:pointer;flex-shrink:0;border:1px solid #d1d5db}
 .toggle-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #f3f4f6;font-size:13px;font-weight:600}
 .toggle-row input{width:20px;height:20px;margin:0}
 .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;padding:14px;z-index:100}
@@ -136,12 +138,12 @@ label{display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#3741
       <label>Product Photo (Gallery / Files / OneDrive)</label>
       <input type="file" id="prodImgFile" onchange="compressImg(event, 'prod')" />
       <img id="imgPreview" class="preview-thumb hidden" />
+      <label>Category</label>
+      <select id="prodCat"></select>
       <label>Model / Item Name</label>
       <input type="text" id="prodName" placeholder="Ex: Goggle Model 101" />
       <label>Description (Material, Color, Quality - Optional)</label>
       <textarea id="prodDesc" placeholder="Ex: TR90 frame, UV400 lens, mix colors"></textarea>
-      <label>Category</label>
-      <select id="prodCat"></select>
       <div style="display:flex;gap:10px;">
         <div style="flex:1;"><label>Purchase Rate (₹ - Private)</label><input type="number" id="prodBuyRate" placeholder="Ex: 25" oninput="calcSalePrice()" /></div>
         <div style="flex:1;"><label>Margin (% - Private)</label><input type="number" id="prodMargin" placeholder="Ex: 20" oninput="calcSalePrice()" /></div>
@@ -552,7 +554,7 @@ async function sendCustomerOrder() {
   let itemsArr = [];
   for (const id in cart) {
     const p = products.find(x => x.id === id);
-    if (p) itemsArr.push({ name: p.name, category: p.categoryName, qty: cart[id], price: Number(p.price), sub: cart[id] * Number(p.price) });
+    if (p) itemsArr.push({ prodId: p.id, name: p.name, category: p.categoryName, qty: cart[id], price: Number(p.price), sub: cart[id] * Number(p.price) });
   }
 
   try {
@@ -577,6 +579,13 @@ async function sendCustomerOrder() {
   window.location.href = `https://wa.me/${waNum}?text=${encodeURIComponent(plainMsg)}`;
 }
 
+function getItemImg(it) {
+  let p = it.prodId ? products.find(x => x.id === it.prodId) : null;
+  if (!p) p = products.find(x => x.name === it.name && Number(x.price) === Number(it.price));
+  if (!p) p = products.find(x => x.name === it.name);
+  return (p && p.image) ? p.image : "https://via.placeholder.com/60?text=No+Img";
+}
+
 // --- ADMIN ORDER EDIT & PDF SHARE ---
 function openAdminOrderEdit(idx) {
   editingOrderIdx = idx;
@@ -584,11 +593,14 @@ function openAdminOrderEdit(idx) {
   document.getElementById("aoHeader").innerHTML = `<strong>Consignee:</strong> ${o.customerName} (${o.mobile})`;
   document.getElementById("aoDiscPct").value = o.discountPct || 0;
   document.getElementById("aoDiscFlat").value = o.discountFlat || 0;
-  document.getElementById("aoItemsBox").innerHTML = (o.items || []).map((it, i) => `
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;padding:6px 0;border-bottom:1px solid #eee;font-size:12px;">
+  document.getElementById("aoItemsBox").innerHTML = (o.items || []).map((it, i) => {
+    const imgSrc = getItemImg(it);
+    return `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid #eee;font-size:12px;">
+      <img src="${imgSrc}" class="ord-thumb" onclick="zoomImage('${imgSrc}')" />
       <div style="flex:1;"><strong>${it.name}</strong><br>${it.qty} pcs</div>
-      <div style="width:85px;"><label style="font-size:10px;">Rate (₹)</label><input type="number" id="aoRate_${i}" value="${it.price}" style="margin:0;padding:5px;" oninput="recalcAdminOrder()" /></div>
-    </div>`).join("");
+      <div style="width:80px;"><label style="font-size:10px;">Rate (₹)</label><input type="number" id="aoRate_${i}" value="${it.price}" style="margin:0;padding:5px;" oninput="recalcAdminOrder()" /></div>
+    </div>`;
+  }).join("");
   recalcAdminOrder();
   document.getElementById("adminOrdModal").classList.remove("hidden");
 }
@@ -871,7 +883,16 @@ async function deleteOrder(id) { if (confirm("Delete this order?")) { await db.c
 function renderAdminOrders() {
   document.getElementById("adminOrdList").innerHTML = orders.length ? orders.map((o, idx) => {
     const dt = o.createdAt && o.createdAt.toDate ? o.createdAt.toDate().toLocaleString("en-IN") : "";
-    const itemsTxt = (o.items || []).map(i => `${i.name} (${i.qty} x ₹${i.price})`).join(", ");
+    const itemsHtml = (o.items || []).map(i => {
+      const imgSrc = getItemImg(i);
+      return `<div class="ord-item-row">
+        <img src="${imgSrc}" class="ord-thumb" onclick="zoomImage('${imgSrc}')" />
+        <div style="flex:1;">
+          <div style="font-weight:600;">${i.name}</div>
+          <div style="color:#555;font-size:11px;">Qty: <strong>${i.qty} pcs</strong> × ₹${i.price} = ₹${i.sub || (i.qty * i.price)}</div>
+        </div>
+      </div>`;
+    }).join("");
     return `<div class="ord-card">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
         <strong>Consignee: ${o.customerName} (${o.mobile})</strong>
@@ -881,8 +902,8 @@ function renderAdminOrders() {
           <button class="btn-sm" style="background:var(--d);padding:3px 6px;" onclick="deleteOrder('${o.id}')">X</button>
         </div>
       </div>
-      <div style="color:#666;font-size:11px;margin-bottom:4px;">${dt}</div>
-      <div style="margin-bottom:4px;">${itemsTxt}</div>
+      <div style="color:#666;font-size:11px;margin-bottom:6px;">${dt}</div>
+      <div style="margin-bottom:6px;">${itemsHtml}</div>
       <div style="font-weight:700;color:var(--p);">Final: ₹${o.totalAmt} (${o.totalPcs} pcs) ${o.discountAmt ? `<span style="color:var(--s);font-size:11px;">(Disc: -₹${o.discountAmt})</span>` : ''}</div>
     </div>`;
   }).join("") : `<p style="color:var(--m);font-size:12px;">No orders yet.</p>`;
