@@ -160,8 +160,8 @@ label{display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#3741
     <div class="card">
       <h3 id="prodFormTitle" style="margin-bottom:10px;">Add New Product</h3>
       <input type="hidden" id="editProdId" />
-      <label>Product Photos (Select 1 or Multiple)</label>
-      <input type="file" id="prodImgFile" multiple accept="image/*" onchange="handleProdFiles(event)" />
+      <label>Product Photos (Select 1 or Multiple - OneDrive / Gallery / Files)</label>
+      <input type="file" id="prodImgFile" multiple onchange="handleProdFiles(event)" />
       <div id="photoQueueBar" class="queue-bar hidden">
         <span id="photoQueueText">Photo 1 of 1</span>
         <div style="display:flex;gap:5px;">
@@ -171,8 +171,8 @@ label{display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#3741
       </div>
       <img id="imgPreview" class="preview-thumb hidden" />
       <div style="display:flex;gap:10px;">
-        <div style="flex:1;"><label>Category</label><select id="prodCat"></select></div>
-        <div style="flex:1;"><label>Sub-Category (Filter)</label><select id="prodSubCat"><option value="">None</option></select></div>
+        <div style="flex:1;"><label>Category</label><select id="prodCat" onchange="onProdCatChange()"></select></div>
+        <div style="flex:1;"><label id="prodSubCatLabel">Sub-Category (Filter)</label><select id="prodSubCat"><option value="">None</option></select></div>
       </div>
       <label>Model / Item Name</label>
       <input type="text" id="prodName" placeholder="Ex: Goggle Model 101" />
@@ -196,7 +196,7 @@ label{display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#3741
     </div>
   </div>
 
-  <!-- TAB: CATEGORIES & SUB-CATEGORIES -->
+  <!-- TAB: CATEGORIES & CUSTOM FILTER SETTINGS -->
   <div id="adminCatTab" class="hidden">
     <div class="card">
       <h3 style="margin-bottom:10px;">Add Category &amp; Rate Password</h3>
@@ -206,10 +206,19 @@ label{display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#3741
       <div id="adminCatList" style="margin-top:12px;"></div>
     </div>
     <div class="card">
-      <h3 style="margin-bottom:10px;">Sub-Category / Filter Tags</h3>
-      <label>Filter Name (For Customer Filter Button)</label>
-      <input type="text" id="subCatName" placeholder="Ex: Ladies, Kids, Gents, Polarized" />
-      <button class="btn btn-s" onclick="saveSubCategory()">Save Sub-Category</button>
+      <h3 style="margin-bottom:10px;">Category Filter Settings</h3>
+      <label>Select Category</label>
+      <select id="filterConfigCat" onchange="renderAdminSubCategories()"></select>
+      <label>Filter Heading Name (Sub-Category ki jagah kya dikhe)</label>
+      <div style="display:flex;gap:6px;margin-bottom:10px;">
+        <input type="text" id="catFilterLabelInp" placeholder="Ex: Gender, Model, Type, Material" style="margin:0;flex:1;" />
+        <button class="btn-sm" style="background:var(--p);white-space:nowrap;padding:0 12px;" onclick="saveCatFilterLabel()">Save Name</button>
+      </div>
+      <label>Add Filter Option (Is Category ke liye)</label>
+      <div style="display:flex;gap:6px;">
+        <input type="text" id="subCatName" placeholder="Ex: Ladies, Kids, Gents" style="margin:0;flex:1;" />
+        <button class="btn-sm" style="background:var(--s);white-space:nowrap;padding:0 12px;" onclick="saveSubCategory()">+ Add</button>
+      </div>
       <div id="adminSubCatList" style="margin-top:12px;"></div>
     </div>
   </div>
@@ -286,7 +295,7 @@ label{display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#3741
 <!-- CUSTOMER FILTER MODAL -->
 <div id="filterModal" class="modal-bg hidden" onclick="if(event.target===this)this.classList.add('hidden')">
   <div class="modal">
-    <h3 style="margin-bottom:10px;">Filter Items</h3>
+    <h3 id="filterModalTitle" style="margin-bottom:10px;">Filter Items</h3>
     <div id="filterOptionsList"></div>
     <button class="btn btn-o" style="margin-top:6px;" onclick="document.getElementById('filterModal').classList.add('hidden')">Close</button>
   </div>
@@ -420,6 +429,7 @@ async function initApp() {
     if (setDoc.exists) appSettings = { ...appSettings, ...setDoc.data() };
     applySettingsUI();
     await Promise.all([loadCategories(), loadSubCategories(), loadProducts(), loadVouchers()]);
+    populateCategoryDropdowns();
 
     if (savedMobInitial && savedMobInitial.length === 10) {
       if (appSettings.catalogOn === false) {
@@ -628,7 +638,13 @@ function renderCatPills() {
   }).join("");
 }
 
-function selectActiveCat(id) { activeCategory = categories.find(c => c.id === id); renderCatPills(); renderCustomerProducts(); }
+function selectActiveCat(id) {
+  activeCategory = categories.find(c => c.id === id);
+  activeSubCat = "";
+  updateFilterBtnUI();
+  renderCatPills();
+  renderCustomerProducts();
+}
 
 function unlockCurrentCat() {
   if (!activeCategory) return;
@@ -643,13 +659,16 @@ function unlockCurrentCat() {
 
 // --- CUSTOMER FILTER MODAL ---
 function openFilterModal() {
+  const lbl = (activeCategory && activeCategory.filterLabel) ? activeCategory.filterLabel : "Filter Items";
+  document.getElementById("filterModalTitle").innerText = lbl;
   const listEl = document.getElementById("filterOptionsList");
+  const catSubList = subCategories.filter(s => activeCategory && (s.categoryId === activeCategory.id || !s.categoryId));
   const allBtn = `<button class="filter-opt ${!activeSubCat ? 'active' : ''}" onclick="selectCustomerFilter('')"><span>All Items</span><span>${!activeSubCat ? '✓' : ''}</span></button>`;
-  const subBtns = subCategories.map(s => {
+  const subBtns = catSubList.map(s => {
     const isAct = activeSubCat.toLowerCase() === s.name.toLowerCase();
     return `<button class="filter-opt ${isAct ? 'active' : ''}" onclick="selectCustomerFilter('${s.name.replace(/'/g, "\\'")}')"><span>${s.name}</span><span>${isAct ? '✓' : ''}</span></button>`;
   }).join("");
-  listEl.innerHTML = allBtn + (subBtns || `<p style="font-size:12px;color:var(--m);margin:8px 0;">No filter tags added yet.</p>`);
+  listEl.innerHTML = allBtn + (subBtns || `<p style="font-size:12px;color:var(--m);margin:8px 0;">No filter options added for this category.</p>`);
   document.getElementById("filterModal").classList.remove("hidden");
 }
 
@@ -662,11 +681,12 @@ function selectCustomerFilter(subName) {
 
 function updateFilterBtnUI() {
   const btn = document.getElementById("custFilterBtn");
+  const baseLbl = (activeCategory && activeCategory.filterLabel) ? activeCategory.filterLabel : "Filter";
   if (activeSubCat) {
-    btn.innerText = "Filter: " + activeSubCat;
+    btn.innerText = baseLbl + ": " + activeSubCat;
     btn.classList.add("active");
   } else {
-    btn.innerText = "Filter";
+    btn.innerText = baseLbl;
     btn.classList.remove("active");
   }
 }
@@ -1137,6 +1157,7 @@ function editProduct(id) {
   document.getElementById("prodName").value = p.name;
   document.getElementById("prodDesc").value = p.description || "";
   document.getElementById("prodCat").value = p.categoryId;
+  onProdCatChange();
   document.getElementById("prodSubCat").value = p.subCategory || "";
   document.getElementById("prodBuyRate").value = p.buyRate || "";
   document.getElementById("prodMargin").value = p.marginPct !== undefined ? p.marginPct : 30;
@@ -1202,7 +1223,7 @@ function renderAdminProducts() {
 async function saveCategory() {
   const name = document.getElementById("catName").value.trim(), password = document.getElementById("catPass").value.trim();
   if (!name || !password) { alert("Category name and password are required."); return; }
-  await db.collection("categories").add({ name, password, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+  await db.collection("categories").add({ name, password, filterLabel: "", createdAt: firebase.firestore.FieldValue.serverTimestamp() });
   document.getElementById("catName").value = ""; document.getElementById("catPass").value = "";
   await loadCategories(); showToast("✓ Category saved!");
 }
@@ -1224,45 +1245,77 @@ function renderAdminCategories() {
     </div></div>`).join("") : `<p style="color:var(--m);font-size:13px;">No categories yet.</p>`;
 }
 
-// --- SUB-CATEGORIES (FILTER TAGS) ---
+// --- CATEGORY-WISE CUSTOM FILTER HEADING & OPTIONS ---
+async function saveCatFilterLabel() {
+  const catId = document.getElementById("filterConfigCat").value;
+  if (!catId) { alert("Add a Category first."); return; }
+  const lbl = document.getElementById("catFilterLabelInp").value.trim();
+  await db.collection("categories").doc(catId).update({ filterLabel: lbl });
+  const c = categories.find(x => x.id === catId);
+  if (c) c.filterLabel = lbl;
+  onProdCatChange();
+  updateFilterBtnUI();
+  showToast("✓ Filter heading saved!");
+}
+
 async function saveSubCategory() {
+  const catId = document.getElementById("filterConfigCat").value;
+  if (!catId) { alert("Add a Category first."); return; }
   const name = document.getElementById("subCatName").value.trim();
-  if (!name) { alert("Sub-Category name is required."); return; }
-  await db.collection("subcategories").add({ name, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+  if (!name) { alert("Filter option name is required."); return; }
+  await db.collection("subcategories").add({ name, categoryId: catId, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
   document.getElementById("subCatName").value = "";
-  await loadSubCategories(); showToast("✓ Sub-Category saved!");
+  await loadSubCategories(); showToast("✓ Filter option saved!");
 }
 
 async function deleteSubCategory(id) {
-  if (confirm("Delete this Sub-Category?")) {
+  if (confirm("Delete this filter option?")) {
     await db.collection("subcategories").doc(id).delete();
     await loadSubCategories();
   }
 }
 
 function renderAdminSubCategories() {
-  document.getElementById("adminSubCatList").innerHTML = subCategories.length ? subCategories.map(s => `
+  const catId = document.getElementById("filterConfigCat").value;
+  const cat = categories.find(c => c.id === catId);
+  document.getElementById("catFilterLabelInp").value = (cat && cat.filterLabel) ? cat.filterLabel : "";
+  const list = subCategories.filter(s => s.categoryId === catId || !s.categoryId);
+  document.getElementById("adminSubCatList").innerHTML = list.length ? list.map(s => `
     <div class="list-item">
       <div style="font-weight:700;font-size:14px;">${s.name}</div>
       <button class="btn-sm" style="background:var(--d);" onclick="deleteSubCategory('${s.id}')">X</button>
-    </div>`).join("") : `<p style="color:var(--m);font-size:12px;">No sub-categories yet (Ex: Ladies, Kids).</p>`;
+    </div>`).join("") : `<p style="color:var(--m);font-size:12px;">No filter options for this category yet.</p>`;
+}
+
+function onProdCatChange() {
+  const catId = document.getElementById("prodCat").value;
+  const cat = categories.find(c => c.id === catId);
+  document.getElementById("prodSubCatLabel").innerText = (cat && cat.filterLabel) ? cat.filterLabel : "Sub-Category (Filter)";
+  populateSubCatDropdown();
 }
 
 function populateSubCatDropdown() {
+  const catId = document.getElementById("prodCat").value;
   const curVal = document.getElementById("prodSubCat").value;
-  const opts = `<option value="">None</option>` + subCategories.map(s => `<option value="${s.name}">${s.name}</option>`).join("");
+  const list = subCategories.filter(s => s.categoryId === catId || !s.categoryId);
+  const opts = `<option value="">None</option>` + list.map(s => `<option value="${s.name}">${s.name}</option>`).join("");
   document.getElementById("prodSubCat").innerHTML = opts;
-  if (curVal) document.getElementById("prodSubCat").value = curVal;
+  if (curVal && list.some(s => s.name === curVal)) document.getElementById("prodSubCat").value = curVal;
 }
 
 function populateCategoryDropdowns() {
   const curProdCat = document.getElementById("prodCat").value;
   const curFilterCat = document.getElementById("adminFilterCat").value;
+  const curCfgCat = document.getElementById("filterConfigCat").value;
   const opts = categories.map(c => `<option value="${c.id}">${c.name}</option>`).join("");
   document.getElementById("prodCat").innerHTML = opts || `<option value="">Add Category First</option>`;
   document.getElementById("adminFilterCat").innerHTML = `<option value="ALL">All Categories</option>` + opts;
-  if (curProdCat) document.getElementById("prodCat").value = curProdCat;
+  document.getElementById("filterConfigCat").innerHTML = opts || `<option value="">Add Category First</option>`;
+  if (curProdCat && categories.some(c => c.id === curProdCat)) document.getElementById("prodCat").value = curProdCat;
   if (curFilterCat) document.getElementById("adminFilterCat").value = curFilterCat;
+  if (curCfgCat && categories.some(c => c.id === curCfgCat)) document.getElementById("filterConfigCat").value = curCfgCat;
+  onProdCatChange();
+  renderAdminSubCategories();
 }
 
 async function saveAdBanner() {
