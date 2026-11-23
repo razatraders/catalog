@@ -295,7 +295,10 @@ label{display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#3741
 <div id="zoomModal" class="modal-bg hidden" onclick="this.classList.add('hidden')"><img id="zoomImg" class="img-zoom" /></div>
 
 <script>
-// --- PWA SERVICE WORKER & INSTALL ---
+// --- PWA SERVICE WORKER & APP DETECTION ---
+function isInstalledApp() {
+  return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+}
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("sw.js").catch(() => {});
 }
@@ -304,7 +307,7 @@ window.addEventListener("beforeinstallprompt", (e) => {
   e.preventDefault();
   deferredPrompt = e;
 });
-if (window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone) {
+if (isInstalledApp()) {
   document.getElementById("installAppBtn").classList.add("hidden");
 }
 async function installPWA() {
@@ -341,6 +344,14 @@ async function initApp() {
     if (setDoc.exists) appSettings = { ...appSettings, ...setDoc.data() };
     applySettingsUI();
     await Promise.all([loadCategories(), loadProducts(), loadVouchers()]);
+
+    // Auto-login inside installed PWA app if already signed in earlier
+    if (isInstalledApp() && appSettings.catalogOn !== false) {
+      const savedMob = localStorage.getItem("rt_app_mobile");
+      if (savedMob && savedMob.length === 10) {
+        await loginCustomerByMobile(savedMob, true);
+      }
+    }
   } catch (e) { alert("Database Error: " + e.message); }
 }
 
@@ -402,6 +413,82 @@ async function loadAdminRecords() {
   renderAdminCustomers(); renderAdminOrders();
 }
 
+function saveUnlockedCategories() {
+  if (!isInstalledApp() || !activeMobile) return;
+  const saved = {};
+  unlockedCatIds.forEach(id => {
+    const cat = categories.find(c => c.id === id);
+    if (cat) saved[id] = (cat.password || "").trim();
+  });
+  localStorage.setItem("rt_unlocked_" + activeMobile, JSON.stringify(saved));
+}
+
+function restoreUnlockedCategories(mob) {
+  unlockedCatIds = new Set();
+  if (!isInstalledApp() || !mob) return;
+  try {
+    const saved = JSON.parse(localStorage.getItem("rt_unlocked_" + mob) || "{}");
+    categories.forEach(c => {
+      if (saved[c.id] && (c.password || "").trim().toLowerCase() === String(saved[c.id]).trim().toLowerCase()) {
+        unlockedCatIds.add(c.id);
+      }
+    });
+  } catch (e) {}
+}
+
+async function loginCustomerByMobile(mob, isAuto) {
+  const errEl = document.getElementById("loginErr");
+  const cRef = db.collection("customers").doc(mob);
+  const cDoc = await cRef.get();
+
+  if (cDoc.exists && cDoc.data().blocked === true) {
+    if (isAuto) localStorage.removeItem("rt_app_mobile");
+    else errEl.innerText = "Your number is blocked. Please contact Raza Traders.";
+    return false;
+  }
+
+  if (isAuto || authMode === "login") {
+    if (!cDoc.exists) {
+      if (isAuto) localStorage.removeItem("rt_app_mobile");
+      else errEl.innerText = "Number not registered. Please tap 'New Sign Up' first.";
+      return false;
+    }
+    activeCustName = cDoc.data().name || "Customer";
+    await cRef.set({ lastSeen: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+  } else {
+    const sName = document.getElementById("custSignupName").value.trim() || "Customer";
+    activeCustName = sName;
+    await cRef.set({ mobile: mob, name: sName, blocked: false, createdAt: firebase.firestore.FieldValue.serverTimestamp(), lastSeen: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+  }
+
+  activeMobile = mob;
+  cart = {};
+  appliedVoucher = null;
+  restoreUnlockedCategories(mob);
+
+  if (isInstalledApp()) {
+    localStorage.setItem("rt_app_mobile", mob);
+  }
+
+  const urlPass = new URLSearchParams(window.location.search).get("pass");
+  if (urlPass) {
+    const m = categories.find(c => (c.password || "").trim().toLowerCase() === urlPass.trim().toLowerCase());
+    if (m) { unlockedCatIds.add(m.id); activeCategory = m; saveUnlockedCategories(); }
+  }
+  if (!activeCategory && categories.length) {
+    activeCategory = categories.find(c => unlockedCatIds.has(c.id)) || categories[0];
+  }
+
+  document.getElementById("custMobileOrder").value = mob;
+  document.getElementById("custName").value = activeCustName === "Customer" ? "" : activeCustName;
+  document.getElementById("hdrSub").innerText = activeCustName + " (" + mob + ")";
+  document.getElementById("loginView").classList.add("hidden");
+  document.getElementById("customerView").classList.remove("hidden");
+  document.getElementById("logoutBtn").classList.remove("hidden");
+  renderInlineAd(); renderCatPills(); renderCustomerProducts(); updateCartBar();
+  return true;
+}
+
 async function handleCustomerAuth() {
   const errEl = document.getElementById("loginErr");
   if (appSettings.catalogOn === false) { errEl.innerText = "Catalog is currently closed."; return; }
@@ -410,36 +497,7 @@ async function handleCustomerAuth() {
 
   const btn = document.getElementById("loginBtn"); btn.innerText = "Checking..."; btn.disabled = true; errEl.innerText = "";
   try {
-    const cRef = db.collection("customers").doc(mob);
-    const cDoc = await cRef.get();
-    if (cDoc.exists && cDoc.data().blocked === true) {
-      errEl.innerText = "Your number is blocked. Please contact Raza Traders."; return;
-    }
-    if (authMode === "login") {
-      if (!cDoc.exists) { errEl.innerText = "Number not registered. Please tap 'New Sign Up' first."; return; }
-      activeCustName = cDoc.data().name || "Customer";
-      await cRef.set({ lastSeen: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
-    } else {
-      const sName = document.getElementById("custSignupName").value.trim() || "Customer";
-      activeCustName = sName;
-      await cRef.set({ mobile: mob, name: sName, blocked: false, createdAt: firebase.firestore.FieldValue.serverTimestamp(), lastSeen: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
-    }
-
-    activeMobile = mob; unlockedCatIds = new Set(); cart = {}; appliedVoucher = null;
-    const urlPass = new URLSearchParams(window.location.search).get("pass");
-    if (urlPass) {
-      const m = categories.find(c => (c.password || "").trim().toLowerCase() === urlPass.trim().toLowerCase());
-      if (m) { unlockedCatIds.add(m.id); activeCategory = m; }
-    }
-    if (!activeCategory && categories.length) activeCategory = categories[0];
-
-    document.getElementById("custMobileOrder").value = mob;
-    document.getElementById("custName").value = activeCustName === "Customer" ? "" : activeCustName;
-    document.getElementById("hdrSub").innerText = activeCustName + " (" + mob + ")";
-    document.getElementById("loginView").classList.add("hidden");
-    document.getElementById("customerView").classList.remove("hidden");
-    document.getElementById("logoutBtn").classList.remove("hidden");
-    renderInlineAd(); renderCatPills(); renderCustomerProducts(); updateCartBar();
+    await loginCustomerByMobile(mob, false);
   } catch (e) { errEl.innerText = "Error: " + e.message; }
   finally { btn.innerText = authMode === "login" ? "Login" : "Sign Up & Open Catalog"; btn.disabled = false; }
 }
@@ -466,7 +524,9 @@ function unlockCurrentCat() {
   const pass = prompt(`Enter Password to unlock "${activeCategory.name}" rates:`);
   if (!pass) return;
   if ((activeCategory.password || "").trim().toLowerCase() === pass.trim().toLowerCase()) {
-    unlockedCatIds.add(activeCategory.id); renderCatPills(); renderCustomerProducts();
+    unlockedCatIds.add(activeCategory.id);
+    saveUnlockedCategories();
+    renderCatPills(); renderCustomerProducts();
   } else alert("Incorrect Password!");
 }
 
@@ -483,6 +543,7 @@ function openAdminPrompt() {
 }
 
 function logout() {
+  localStorage.removeItem("rt_app_mobile");
   unlockedCatIds = new Set(); activeCategory = null; activeMobile = ""; cart = {}; appliedVoucher = null;
   document.getElementById("hdrSub").innerText = "Wholesale Digital Catalog";
   ["customerView","adminView","cartBar","logoutBtn"].forEach(id => document.getElementById(id).classList.add("hidden"));
