@@ -70,6 +70,7 @@ label{display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#3741
 .modal{background:#fff;border-radius:12px;padding:16px;width:100%;max-width:440px;max-height:88vh;overflow-y:auto}
 .img-zoom{max-width:100%;max-height:80vh;border-radius:10px}
 .preview-thumb{width:80px;height:80px;object-fit:cover;border-radius:8px;margin-bottom:10px;border:1px solid #ccc}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#16a34a;color:#fff;padding:10px 20px;border-radius:999px;font-size:13px;font-weight:700;box-shadow:0 4px 14px rgba(0,0,0,.22);z-index:200;white-space:nowrap}
 </style>
 </head>
 <body>
@@ -78,8 +79,17 @@ label{display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#3741
   <button id="logoutBtn" class="btn-sm hidden" onclick="logout()">Logout</button>
 </header>
 
+<!-- SPLASH SCREEN FOR AUTO-LOGIN APP -->
+<div id="appSplash" class="container hidden">
+  <div class="card login-box" style="padding:32px 16px;">
+    <img id="splashLogoImg" class="login-logo hidden" />
+    <h2 id="splashShopTitle">Raza Traders</h2>
+    <p style="margin-top:8px;font-weight:600;color:var(--p);">Opening Catalog...</p>
+  </div>
+</div>
+
 <!-- 1. LOGIN / SIGN UP -->
-<div id="loginView" class="container">
+<div id="loginView" class="container hidden">
   <div class="card login-box">
     <img id="loginLogoImg" class="login-logo hidden" />
     <h2 id="loginShopTitle">Raza Traders</h2>
@@ -293,9 +303,10 @@ label{display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#3741
 </div>
 
 <div id="zoomModal" class="modal-bg hidden" onclick="this.classList.add('hidden')"><img id="zoomImg" class="img-zoom" /></div>
+<div id="toastMsg" class="toast hidden"></div>
 
 <script>
-// --- PWA SERVICE WORKER & APP DETECTION ---
+// --- PWA SERVICE WORKER & INSTANT VIEW SELECTION ---
 function isInstalledApp() {
   return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
 }
@@ -310,6 +321,35 @@ window.addEventListener("beforeinstallprompt", (e) => {
 if (isInstalledApp()) {
   document.getElementById("installAppBtn").classList.add("hidden");
 }
+
+// Decide immediately before network call so Login page NEVER flashes on auto-login
+const savedMobInitial = isInstalledApp() ? localStorage.getItem("rt_app_mobile") : null;
+if (savedMobInitial && savedMobInitial.length === 10) {
+  const cName = localStorage.getItem("rt_shop_name");
+  const cLogo = localStorage.getItem("rt_shop_logo");
+  if (cName) {
+    document.getElementById("hdrShopName").innerText = cName;
+    document.getElementById("splashShopTitle").innerText = cName;
+  }
+  if (cLogo) {
+    const sl = document.getElementById("splashLogoImg");
+    sl.src = cLogo;
+    sl.classList.remove("hidden");
+  }
+  document.getElementById("appSplash").classList.remove("hidden");
+} else {
+  document.getElementById("loginView").classList.remove("hidden");
+}
+
+let toastTimer = null;
+function showToast(msg) {
+  const el = document.getElementById("toastMsg");
+  el.innerText = msg;
+  el.classList.remove("hidden");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.add("hidden"), 1500);
+}
+
 async function installPWA() {
   if (deferredPrompt) {
     deferredPrompt.prompt();
@@ -345,27 +385,43 @@ async function initApp() {
     applySettingsUI();
     await Promise.all([loadCategories(), loadProducts(), loadVouchers()]);
 
-    // Auto-login inside installed PWA app if already signed in earlier
-    if (isInstalledApp() && appSettings.catalogOn !== false) {
-      const savedMob = localStorage.getItem("rt_app_mobile");
-      if (savedMob && savedMob.length === 10) {
-        await loginCustomerByMobile(savedMob, true);
+    if (savedMobInitial && savedMobInitial.length === 10) {
+      if (appSettings.catalogOn === false) {
+        document.getElementById("appSplash").classList.add("hidden");
+        document.getElementById("loginView").classList.remove("hidden");
+        document.getElementById("loginErr").innerText = "Catalog is currently closed.";
+      } else {
+        const ok = await loginCustomerByMobile(savedMobInitial, true);
+        if (!ok) {
+          document.getElementById("appSplash").classList.add("hidden");
+          document.getElementById("loginView").classList.remove("hidden");
+        }
       }
     }
-  } catch (e) { alert("Database Error: " + e.message); }
+  } catch (e) {
+    document.getElementById("appSplash").classList.add("hidden");
+    document.getElementById("loginView").classList.remove("hidden");
+    alert("Database Error: " + e.message);
+  }
 }
 
 function applySettingsUI() {
   document.getElementById("hdrShopName").innerText = appSettings.shopName;
   document.getElementById("loginShopTitle").innerText = appSettings.shopName;
+  document.getElementById("splashShopTitle").innerText = appSettings.shopName;
   document.getElementById("modalConsignor").innerText = appSettings.shopName;
   document.getElementById("setShopName").value = appSettings.shopName;
   document.getElementById("setWhatsapp").value = appSettings.whatsapp || "";
   document.getElementById("setAdminPin").value = appSettings.adminPin || "7860";
   document.getElementById("ctrlCatalogOn").checked = appSettings.catalogOn !== false;
   document.getElementById("ctrlStrictSet").checked = appSettings.strictSet !== false;
+  try {
+    localStorage.setItem("rt_shop_name", appSettings.shopName || "Raza Traders");
+    if (appSettings.logo) localStorage.setItem("rt_shop_logo", appSettings.logo);
+  } catch (e) {}
   if (appSettings.logo) {
     const lg = document.getElementById("loginLogoImg"); lg.src = appSettings.logo; lg.classList.remove("hidden");
+    const sl = document.getElementById("splashLogoImg"); sl.src = appSettings.logo; sl.classList.remove("hidden");
     const lp = document.getElementById("logoPreview"); lp.src = appSettings.logo; lp.classList.remove("hidden");
   }
   if (appSettings.adBanner) {
@@ -443,7 +499,7 @@ async function loginCustomerByMobile(mob, isAuto) {
 
   if (cDoc.exists && cDoc.data().blocked === true) {
     if (isAuto) localStorage.removeItem("rt_app_mobile");
-    else errEl.innerText = "Your number is blocked. Please contact Raza Traders.";
+    errEl.innerText = "Your number is blocked. Please contact Raza Traders.";
     return false;
   }
 
@@ -454,7 +510,7 @@ async function loginCustomerByMobile(mob, isAuto) {
       return false;
     }
     activeCustName = cDoc.data().name || "Customer";
-    await cRef.set({ lastSeen: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+    cRef.set({ lastSeen: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true }).catch(() => {});
   } else {
     const sName = document.getElementById("custSignupName").value.trim() || "Customer";
     activeCustName = sName;
@@ -482,6 +538,7 @@ async function loginCustomerByMobile(mob, isAuto) {
   document.getElementById("custMobileOrder").value = mob;
   document.getElementById("custName").value = activeCustName === "Customer" ? "" : activeCustName;
   document.getElementById("hdrSub").innerText = activeCustName + " (" + mob + ")";
+  document.getElementById("appSplash").classList.add("hidden");
   document.getElementById("loginView").classList.add("hidden");
   document.getElementById("customerView").classList.remove("hidden");
   document.getElementById("logoutBtn").classList.remove("hidden");
@@ -535,6 +592,7 @@ function openAdminPrompt() {
   if (pin === null) return;
   if (pin.trim() === String(appSettings.adminPin || "7860")) {
     document.getElementById("hdrSub").innerText = "Admin Panel";
+    document.getElementById("appSplash").classList.add("hidden");
     document.getElementById("loginView").classList.add("hidden");
     document.getElementById("adminView").classList.remove("hidden");
     document.getElementById("logoutBtn").classList.remove("hidden");
@@ -546,7 +604,7 @@ function logout() {
   localStorage.removeItem("rt_app_mobile");
   unlockedCatIds = new Set(); activeCategory = null; activeMobile = ""; cart = {}; appliedVoucher = null;
   document.getElementById("hdrSub").innerText = "Wholesale Digital Catalog";
-  ["customerView","adminView","cartBar","logoutBtn"].forEach(id => document.getElementById(id).classList.add("hidden"));
+  ["appSplash","customerView","adminView","cartBar","logoutBtn"].forEach(id => document.getElementById(id).classList.add("hidden"));
   document.getElementById("loginView").classList.remove("hidden");
 }
 
@@ -837,9 +895,19 @@ async function saveProduct() {
     const catObj = categories.find(c => c.id === categoryId);
     const data = { name, description, categoryId, categoryName: catObj ? catObj.name : "", buyRate, marginPct, price, moq, createdAt: firebase.firestore.FieldValue.serverTimestamp() };
     if (upProdImg) data.image = upProdImg;
-    if (editId) { delete data.createdAt; await db.collection("products").doc(editId).update(data); }
-    else await db.collection("products").add(data);
-    resetProdForm(); await loadProducts(); alert("Product saved!");
+    if (editId) {
+      delete data.createdAt;
+      await db.collection("products").doc(editId).update(data);
+      const idx = products.findIndex(x => x.id === editId);
+      if (idx !== -1) products[idx] = { ...products[idx], ...data };
+    } else {
+      const docRef = await db.collection("products").add(data);
+      products.unshift({ id: docRef.id, ...data, createdAt: new Date() });
+    }
+    document.getElementById("totalProdCount").innerText = products.length;
+    renderAdminProducts();
+    resetProdForm();
+    showToast(editId ? "✓ Product updated!" : "✓ Product saved!");
   } catch (e) { alert("Error: " + e.message); }
   finally { btn.innerText = "Save Product"; btn.disabled = false; }
 }
@@ -892,14 +960,14 @@ async function saveCategory() {
   if (!name || !password) { alert("Category name and password are required."); return; }
   await db.collection("categories").add({ name, password, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
   document.getElementById("catName").value = ""; document.getElementById("catPass").value = "";
-  await loadCategories(); alert("Category saved!");
+  await loadCategories(); showToast("✓ Category saved!");
 }
 
 async function editCatPass(id, oldPass) { const np = prompt("Enter New Password:", oldPass); if (np && np.trim()) { await db.collection("categories").doc(id).update({ password: np.trim() }); await loadCategories(); } }
 async function deleteCategory(id) { if (confirm("Delete this category?")) { await db.collection("categories").doc(id).delete(); await loadCategories(); } }
 function copyCategoryLink(name, pass) {
   const url = window.location.origin + window.location.pathname;
-  navigator.clipboard.writeText(`*${appSettings.shopName} - ${name} Catalog*\nLink: ${url}?pass=${encodeURIComponent(pass)}\nRate Password: ${pass}`).then(() => alert("Link & Password copied!"));
+  navigator.clipboard.writeText(`*${appSettings.shopName} - ${name} Catalog*\nLink: ${url}?pass=${encodeURIComponent(pass)}\nRate Password: ${pass}`).then(() => showToast("✓ Link & Password copied!"));
 }
 
 function renderAdminCategories() {
@@ -921,12 +989,12 @@ function populateCategoryDropdowns() {
 async function saveAdBanner() {
   if (!upAdImg) { alert("Please select an image first."); return; }
   await db.collection("settings").doc("config").set({ adBanner: upAdImg }, { merge: true });
-  appSettings.adBanner = upAdImg; alert("Offer Banner saved!");
+  appSettings.adBanner = upAdImg; showToast("✓ Offer Banner saved!");
 }
 
 async function removeAdBanner() {
   await db.collection("settings").doc("config").set({ adBanner: "" }, { merge: true });
-  appSettings.adBanner = ""; upAdImg = ""; document.getElementById("adPreview").classList.add("hidden"); alert("Offer Banner removed!");
+  appSettings.adBanner = ""; upAdImg = ""; document.getElementById("adPreview").classList.add("hidden"); showToast("✓ Offer Banner removed!");
 }
 
 async function saveVoucher() {
@@ -936,7 +1004,7 @@ async function saveVoucher() {
   if (!code || !discount) { alert("Code and Discount % are required!"); return; }
   await db.collection("vouchers").doc(code).set({ code, minOrder, discount });
   document.getElementById("vCode").value = ""; document.getElementById("vMin").value = ""; document.getElementById("vDisc").value = "";
-  await loadVouchers(); alert("Voucher saved!");
+  await loadVouchers(); showToast("✓ Voucher saved!");
 }
 
 async function deleteVoucher(id) { if (confirm("Delete voucher?")) { await db.collection("vouchers").doc(id).delete(); await loadVouchers(); } }
@@ -953,7 +1021,7 @@ async function manualBlockCustomer() {
   const mob = document.getElementById("manualBlockNum").value.replace(/\D/g, "");
   if (mob.length !== 10) { alert("Enter a valid 10-digit mobile number."); return; }
   await db.collection("customers").doc(mob).set({ mobile: mob, name: "Blocked Number", blocked: true }, { merge: true });
-  document.getElementById("manualBlockNum").value = ""; await loadAdminRecords(); alert(mob + " blocked!");
+  document.getElementById("manualBlockNum").value = ""; await loadAdminRecords(); showToast("✓ " + mob + " blocked!");
 }
 
 function renderAdminCustomers() {
@@ -1008,7 +1076,7 @@ async function saveSettings() {
   if (upLogoImg) data.logo = upLogoImg;
   await db.collection("settings").doc("config").set(data, { merge: true });
   appSettings = { ...appSettings, ...data };
-  applySettingsUI(); alert("Settings & Logo saved!");
+  applySettingsUI(); showToast("✓ Settings & Logo saved!");
 }
 
 initApp();
