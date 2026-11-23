@@ -1,1 +1,693 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Raza Traders - Wholesale Catalog</title>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <style>
+    :root {
+      --primary: #1a56db;
+      --primary-dark: #1e40af;
+      --success: #16a34a;
+      --danger: #dc2626;
+      --bg: #f3f4f6;
+      --card: #ffffff;
+      --text: #111827;
+      --muted: #6b7280;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background: var(--bg); color: var(--text); padding-bottom: 90px; }
+    .hidden { display: none !important; }
+
+    /* Header */
+    header {
+      background: var(--primary); color: #fff; padding: 14px 16px;
+      display: flex; justify-content: space-between; align-items: center;
+      position: sticky; top: 0; z-index: 50; box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+    }
+    header h1 { font-size: 18px; font-weight: 700; }
+    header small { display: block; font-size: 12px; opacity: 0.9; }
+    .btn-sm {
+      background: rgba(255,255,255,0.2); color: #fff; border: none;
+      padding: 6px 12px; border-radius: 6px; font-size: 13px; cursor: pointer;
+    }
+
+    /* Container & Cards */
+    .container { max-width: 720px; margin: 0 auto; padding: 14px; }
+    .card {
+      background: var(--card); border-radius: 12px; padding: 16px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08); margin-bottom: 14px;
+    }
+    .login-box { max-width: 380px; margin: 50px auto; text-align: center; }
+    .login-box h2 { margin-bottom: 6px; color: var(--primary); }
+    .login-box p { color: var(--muted); font-size: 14px; margin-bottom: 18px; }
+
+    /* Inputs & Buttons */
+    input, select {
+      width: 100%; padding: 11px 12px; border: 1px solid #d1d5db;
+      border-radius: 8px; font-size: 15px; margin-bottom: 12px; background: #fff;
+    }
+    label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; color: #374151; }
+    .btn {
+      width: 100%; padding: 12px; border: none; border-radius: 8px;
+      font-size: 15px; font-weight: 600; cursor: pointer; color: #fff; background: var(--primary);
+    }
+    .btn:active { opacity: 0.9; }
+    .btn-success { background: var(--success); }
+    .btn-danger { background: var(--danger); }
+    .btn-outline { background: #fff; color: var(--primary); border: 1px solid var(--primary); }
+
+    /* Product Grid */
+    .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .prod-card {
+      background: #fff; border-radius: 10px; overflow: hidden;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08); display: flex; flex-direction: column;
+    }
+    .prod-img {
+      width: 100%; height: 150px; object-fit: cover; background: #e5e7eb; cursor: pointer;
+    }
+    .prod-body { padding: 10px; flex: 1; display: flex; flex-direction: column; justify-content: space-between; }
+    .prod-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+    .prod-price { font-size: 16px; font-weight: 700; color: var(--primary); }
+    .prod-moq {
+      display: inline-block; background: #fef3c7; color: #92400e;
+      font-size: 11px; font-weight: 600; padding: 2px 6px; border-radius: 4px; margin: 4px 0 8px;
+    }
+    .qty-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+    .qty-btn {
+      width: 32px; height: 32px; border-radius: 6px; border: none;
+      background: var(--primary); color: #fff; font-size: 18px; font-weight: 700; cursor: pointer;
+    }
+    .qty-val { font-weight: 700; font-size: 15px; }
+    .add-btn {
+      width: 100%; padding: 8px; border: none; border-radius: 6px;
+      background: var(--primary); color: #fff; font-size: 13px; font-weight: 600; cursor: pointer;
+    }
+
+    /* Floating Cart Bar */
+    .cart-bar {
+      position: fixed; bottom: 0; left: 0; right: 0; background: #111827; color: #fff;
+      padding: 12px 16px; display: flex; justify-content: space-between; align-items: center;
+      z-index: 60; box-shadow: 0 -2px 10px rgba(0,0,0,0.2);
+    }
+    .cart-bar button {
+      background: var(--success); color: #fff; border: none; padding: 10px 18px;
+      border-radius: 8px; font-weight: 700; font-size: 14px; cursor: pointer;
+    }
+
+    /* Admin Tabs */
+    .tabs { display: flex; gap: 6px; margin-bottom: 14px; }
+    .tab-btn {
+      flex: 1; padding: 10px 6px; border: none; border-radius: 8px;
+      background: #e5e7eb; color: #374151; font-weight: 600; font-size: 13px; cursor: pointer;
+    }
+    .tab-btn.active { background: var(--primary); color: #fff; }
+    .list-item {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      padding: 10px 0; border-bottom: 1px solid #e5e7eb;
+    }
+    .list-item img { width: 52px; height: 52px; border-radius: 8px; object-fit: cover; background: #eee; }
+    .badge { font-size: 11px; padding: 2px 6px; border-radius: 4px; background: #dbeafe; color: #1e40af; font-weight: 600; }
+
+    /* Modal */
+    .modal-bg {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.65);
+      display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 100;
+    }
+    .modal {
+      background: #fff; border-radius: 12px; padding: 18px; width: 100%;
+      max-width: 440px; max-height: 85vh; overflow-y: auto;
+    }
+    .img-zoom { max-width: 100%; max-height: 75vh; border-radius: 10px; }
+    .preview-thumb { width: 90px; height: 90px; object-fit: cover; border-radius: 8px; margin-bottom: 10px; border: 1px solid #ccc; }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header>
+    <div>
+      <h1 id="hdrShopName">Raza Traders</h1>
+      <small id="hdrSub">Wholesale Digital Catalog</small>
+    </div>
+    <button id="logoutBtn" class="btn-sm hidden" onclick="logout()">Logout</button>
+  </header>
+
+  <!-- 1. LOGIN VIEW -->
+  <div id="loginView" class="container">
+    <div class="card login-box">
+      <h2 id="loginShopTitle">Raza Traders</h2>
+      <p>Apna Category Password daalein</p>
+      <input type="text" id="custPassInput" placeholder="Jaise: GOG123" autocomplete="off" />
+      <button class="btn" onclick="customerLogin()">Catalog Kholein</button>
+      <p id="loginErr" style="color:var(--danger); margin-top:10px; font-size:13px;"></p>
+      <hr style="margin:20px 0; border:none; border-top:1px solid #e5e7eb;" />
+      <button class="btn btn-outline" onclick="openAdminPrompt()">Admin Login (Owner)</button>
+    </div>
+  </div>
+
+  <!-- 2. CUSTOMER CATALOG VIEW -->
+  <div id="customerView" class="container hidden">
+    <input type="text" id="searchInput" placeholder="Model ya item search karein..." oninput="renderCustomerProducts()" />
+    <div id="custProductGrid" class="grid"></div>
+    <p id="custEmptyMsg" class="hidden" style="text-align:center; color:var(--muted); margin-top:30px;">Is category mein abhi koi item nahi hai.</p>
+  </div>
+
+  <!-- FLOATING CART BAR -->
+  <div id="cartBar" class="cart-bar hidden">
+    <div>
+      <div style="font-size:13px; opacity:0.85;"><span id="cartPcs">0</span> Pieces Selected</div>
+      <div style="font-size:17px; font-weight:700;">Total: ₹<span id="cartTotal">0</span></div>
+    </div>
+    <button onclick="openCartModal()">Order Dekhein &gt;</button>
+  </div>
+
+  <!-- 3. ADMIN PANEL VIEW -->
+  <div id="adminView" class="container hidden">
+    <div class="tabs">
+      <button class="tab-btn active" id="tabProdBtn" onclick="switchTab('prod')">Products</button>
+      <button class="tab-btn" id="tabCatBtn" onclick="switchTab('cat')">Categories & Lock</button>
+      <button class="tab-btn" id="tabSetBtn" onclick="switchTab('set')">Settings</button>
+    </div>
+
+    <!-- ADMIN TAB 1: PRODUCTS -->
+    <div id="adminProdTab">
+      <div class="card">
+        <h3 id="prodFormTitle" style="margin-bottom:12px;">Naya Product Daalein</h3>
+        <input type="hidden" id="editProdId" />
+        <label>Product Photo (Gallery se chunein)</label>
+        <input type="file" id="prodImgFile" accept="image/*" onchange="handleImageUpload(event)" />
+        <img id="imgPreview" class="preview-thumb hidden" />
+        <label>Model / Item ka Naam</label>
+        <input type="text" id="prodName" placeholder="Jaise: Goggle Model 101" />
+        <label>Category Chunein</label>
+        <select id="prodCat"></select>
+        <div style="display:flex; gap:10px;">
+          <div style="flex:1;">
+            <label>Wholesale Rate (₹ / pc)</label>
+            <input type="number" id="prodPrice" placeholder="50" />
+          </div>
+          <div style="flex:1;">
+            <label>MOQ (Min Pieces)</label>
+            <input type="number" id="prodMoq" value="6" />
+          </div>
+        </div>
+        <button class="btn btn-success" id="saveProdBtn" onclick="saveProduct()">Product Save Karein</button>
+        <button class="btn btn-outline hidden" id="cancelEditBtn" style="margin-top:8px;" onclick="resetProdForm()">Cancel Edit</button>
+      </div>
+
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+          <h3>Saare Products (<span id="totalProdCount">0</span>)</h3>
+        </div>
+        <select id="adminFilterCat" onchange="renderAdminProducts()">
+          <option value="ALL">Saari Categories</option>
+        </select>
+        <div id="adminProdList"></div>
+      </div>
+    </div>
+
+    <!-- ADMIN TAB 2: CATEGORIES & PASSWORDS -->
+    <div id="adminCatTab" class="hidden">
+      <div class="card">
+        <h3 style="margin-bottom:12px;">Nayi Category aur Password Banayein</h3>
+        <label>Category ka Naam</label>
+        <input type="text" id="catName" placeholder="Jaise: Goggles, Caps, Winter Wear" />
+        <label>Is Category ka Secret Password</label>
+        <input type="text" id="catPass" placeholder="Jaise: GOG123" />
+        <button class="btn" onclick="saveCategory()">Category Save Karein</button>
+      </div>
+      <div class="card">
+        <h3 style="margin-bottom:10px;">Categories List</h3>
+        <div id="adminCatList"></div>
+      </div>
+    </div>
+
+    <!-- ADMIN TAB 3: SETTINGS -->
+    <div id="adminSetTab" class="hidden">
+      <div class="card">
+        <h3 style="margin-bottom:12px;">Dukaan aur WhatsApp Settings</h3>
+        <label>Dukaan ka Naam</label>
+        <input type="text" id="setShopName" placeholder="Raza Traders" />
+        <label>Order lene wala WhatsApp Number (10 digit)</label>
+        <input type="tel" id="setWhatsapp" placeholder="Jaise: 9876543210" />
+        <label>Admin Login PIN</label>
+        <input type="text" id="setAdminPin" placeholder="Default: 7860" />
+        <button class="btn btn-success" onclick="saveSettings()">Settings Save Karein</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CART MODAL -->
+  <div id="cartModal" class="modal-bg hidden">
+    <div class="modal">
+      <h3 style="margin-bottom:10px;">Aapka Wholesale Order</h3>
+      <div id="cartItemsList" style="margin-bottom:12px; font-size:14px;"></div>
+      <div style="font-weight:700; font-size:16px; margin-bottom:14px; border-top:1px solid #eee; padding-top:8px;">
+        Grand Total: ₹<span id="modalTotal">0</span> (<span id="modalPcs">0</span> pcs)
+      </div>
+      <label>Aapka Naam / Dukaan ka Naam</label>
+      <input type="text" id="custName" placeholder="Jaise: Sharma Opticals" />
+      <label>Shehar / Market</label>
+      <input type="text" id="custCity" placeholder="Jaise: Raighar / Nabarangpur" />
+      <button class="btn btn-success" onclick="sendWhatsAppOrder()">WhatsApp par Order Bhejein</button>
+      <button class="btn btn-outline" style="margin-top:8px;" onclick="closeCartModal()">Band Karein</button>
+    </div>
+  </div>
+
+  <!-- IMAGE ZOOM MODAL -->
+  <div id="zoomModal" class="modal-bg hidden" onclick="this.classList.add('hidden')">
+    <img id="zoomImg" class="img-zoom" />
+  </div>
+
+  <script>
+    // Aapka Firebase Config
+    const firebaseConfig = {
+      apiKey: "AIzaSyBVliVOy2wYTv5B2Xn9FRg6P7FkeQ3cpLY",
+      authDomain: "raza-traders-934e9.firebaseapp.com",
+      projectId: "raza-traders-934e9",
+      storageBucket: "raza-traders-934e9.firebasestorage.app",
+      messagingSenderId: "300804813737",
+      appId: "1:300804813737:web:b6371221461fc983e70ab8"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    let appSettings = { shopName: "Raza Traders", whatsapp: "", adminPin: "7860" };
+    let categories = [];
+    let products = [];
+    let activeCategory = null;
+    let cart = {};
+    let uploadedBase64 = "";
+
+    // Load initial data
+    async function initApp() {
+      try {
+        const setDoc = await db.collection("settings").doc("config").get();
+        if (setDoc.exists) appSettings = { ...appSettings, ...setDoc.data() };
+        document.getElementById("hdrShopName").innerText = appSettings.shopName;
+        document.getElementById("loginShopTitle").innerText = appSettings.shopName;
+        document.getElementById("setShopName").value = appSettings.shopName;
+        document.getElementById("setWhatsapp").value = appSettings.whatsapp || "";
+        document.getElementById("setAdminPin").value = appSettings.adminPin || "7860";
+
+        await loadCategories();
+        await loadProducts();
+
+        // Auto-login if password is in URL (?pass=GOG123)
+        const urlPass = new URLSearchParams(window.location.search).get("pass");
+        if (urlPass) {
+          document.getElementById("custPassInput").value = urlPass;
+          customerLogin();
+        }
+      } catch (err) {
+        alert("Database connect nahi hua: " + err.message);
+      }
+    }
+
+    async function loadCategories() {
+      const snap = await db.collection("categories").orderBy("createdAt", "desc").get();
+      categories = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderAdminCategories();
+      populateCategoryDropdowns();
+    }
+
+    async function loadProducts() {
+      const snap = await db.collection("products").orderBy("createdAt", "desc").get();
+      products = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      document.getElementById("totalProdCount").innerText = products.length;
+      renderAdminProducts();
+    }
+
+    // --- AUTH & NAVIGATION ---
+    function customerLogin() {
+      const pass = document.getElementById("custPassInput").value.trim().toLowerCase();
+      const errEl = document.getElementById("loginErr");
+      if (!pass) { errEl.innerText = "Kripya password daalein."; return; }
+
+      const found = categories.find(c => (c.password || "").trim().toLowerCase() === pass);
+      if (!found) {
+        errEl.innerText = "Galat password! Sahi password ke liye Raza Traders se sampark karein.";
+        return;
+      }
+      errEl.innerText = "";
+      activeCategory = found;
+      cart = {};
+      document.getElementById("hdrSub").innerText = "Category: " + found.name;
+      document.getElementById("loginView").classList.add("hidden");
+      document.getElementById("customerView").classList.remove("hidden");
+      document.getElementById("logoutBtn").classList.remove("hidden");
+      renderCustomerProducts();
+      updateCartBar();
+    }
+
+    function openAdminPrompt() {
+      const pin = prompt("Admin PIN daalein (Default: 7860):");
+      if (pin === null) return;
+      if (pin.trim() === String(appSettings.adminPin || "7860")) {
+        document.getElementById("hdrSub").innerText = "Admin Panel";
+        document.getElementById("loginView").classList.add("hidden");
+        document.getElementById("adminView").classList.remove("hidden");
+        document.getElementById("logoutBtn").classList.remove("hidden");
+      } else {
+        alert("Galat Admin PIN!");
+      }
+    }
+
+    function logout() {
+      activeCategory = null;
+      cart = {};
+      document.getElementById("hdrSub").innerText = "Wholesale Digital Catalog";
+      document.getElementById("customerView").classList.add("hidden");
+      document.getElementById("adminView").classList.add("hidden");
+      document.getElementById("cartBar").classList.add("hidden");
+      document.getElementById("logoutBtn").classList.add("hidden");
+      document.getElementById("loginView").classList.remove("hidden");
+      document.getElementById("custPassInput").value = "";
+    }
+
+    // --- CUSTOMER CATALOG ---
+    function renderCustomerProducts() {
+      const q = document.getElementById("searchInput").value.trim().toLowerCase();
+      const list = products.filter(p => p.categoryId === activeCategory.id && p.name.toLowerCase().includes(q));
+      const grid = document.getElementById("custProductGrid");
+      const empty = document.getElementById("custEmptyMsg");
+
+      if (list.length === 0) {
+        grid.innerHTML = "";
+        empty.classList.remove("hidden");
+        return;
+      }
+      empty.classList.add("hidden");
+
+      grid.innerHTML = list.map(p => {
+        const qty = cart[p.id] || 0;
+        const moq = Number(p.moq) || 1;
+        const imgSrc = p.image || "https://via.placeholder.com/300x300?text=No+Photo";
+        return `
+          <div class="prod-card">
+            <img src="${imgSrc}" class="prod-img" onclick="zoomImage('${imgSrc}')" />
+            <div class="prod-body">
+              <div>
+                <div class="prod-title">${p.name}</div>
+                <div class="prod-price">₹${p.price} <span style="font-size:11px;font-weight:400;color:#666;">/ pc</span></div>
+                <div class="prod-moq">Min Order: ${moq} pcs</div>
+              </div>
+              ${qty === 0
+                ? `<button class="add-btn" onclick="changeQty('${p.id}', ${moq}, ${moq})">+ Add (${moq} pcs)</button>`
+                : `<div class="qty-row">
+                     <button class="qty-btn" onclick="changeQty('${p.id}', ${qty - 1 < moq ? 0 : qty - 1}, ${moq})">-</button>
+                     <span class="qty-val">${qty}</span>
+                     <button class="qty-btn" onclick="changeQty('${p.id}', ${qty + 1}, ${moq})">+</button>
+                   </div>`
+              }
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function changeQty(prodId, newQty, moq) {
+      if (newQty <= 0) delete cart[prodId];
+      else cart[prodId] = Math.max(newQty, moq);
+      renderCustomerProducts();
+      updateCartBar();
+    }
+
+    function updateCartBar() {
+      let totalPcs = 0, totalAmt = 0;
+      for (const id in cart) {
+        const p = products.find(x => x.id === id);
+        if (p) {
+          totalPcs += cart[id];
+          totalAmt += cart[id] * Number(p.price);
+        }
+      }
+      const bar = document.getElementById("cartBar");
+      if (totalPcs > 0) {
+        document.getElementById("cartPcs").innerText = totalPcs;
+        document.getElementById("cartTotal").innerText = totalAmt;
+        bar.classList.remove("hidden");
+      } else {
+        bar.classList.add("hidden");
+      }
+    }
+
+    function openCartModal() {
+      let html = "", totalPcs = 0, totalAmt = 0;
+      for (const id in cart) {
+        const p = products.find(x => x.id === id);
+        if (p) {
+          const sub = cart[id] * Number(p.price);
+          totalPcs += cart[id];
+          totalAmt += sub;
+          html += `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f3f4f6;">
+            <span>${p.name} (${cart[id]} pcs x ₹${p.price})</span>
+            <strong>₹${sub}</strong>
+          </div>`;
+             }
+      }
+      document.getElementById("cartItemsList").innerHTML = html;
+      document.getElementById("modalTotal").innerText = totalAmt;
+      document.getElementById("modalPcs").innerText = totalPcs;
+      document.getElementById("cartModal").classList.remove("hidden");
+    }
+
+    function closeCartModal() {
+      document.getElementById("cartModal").classList.add("hidden");
+    }
+
+    function sendWhatsAppOrder() {
+      if (!appSettings.whatsapp) {
+        alert("Admin ne abhi WhatsApp number set nahi kiya hai.");
+        return;
+      }
+      const cName = document.getElementById("custName").value.trim() || "Customer";
+      const cCity = document.getElementById("custCity").value.trim() || "-";
+      let msg = `*Naya Wholesale Order - ${appSettings.shopName}*\n`;
+      msg += `*Customer:* ${cName}\n*City:* ${cCity}\n*Category:* ${activeCategory.name}\n-------------------\n`;
+      let idx = 1, totalPcs = 0, totalAmt = 0;
+      for (const id in cart) {
+        const p = products.find(x => x.id === id);
+        if (p) {
+          const sub = cart[id] * Number(p.price);
+          totalPcs += cart[id];
+          totalAmt += sub;
+          msg += `${idx}. ${p.name}\n   Qty: ${cart[id]} pcs x ₹${p.price} = ₹${sub}\n`;
+          idx++;
+        }
+      }
+      msg += `-------------------\n*Total Pieces:* ${totalPcs}\n*Total Bill:* ₹${totalAmt}`;
+      const num = appSettings.whatsapp.replace(/\D/g, "");
+      const waNum = num.length === 10 ? "91" + num : num;
+      window.open(`https://wa.me/${waNum}?text=${encodeURIComponent(msg)}`, "_blank");
+    }
+
+    function zoomImage(src) {
+      document.getElementById("zoomImg").src = src;
+      document.getElementById("zoomModal").classList.remove("hidden");
+    }
+
+    // --- ADMIN FUNCTIONS ---
+    function switchTab(tab) {
+      ["prod", "cat", "set"].forEach(t => {
+        document.getElementById("admin" + t.charAt(0).toUpperCase() + t.slice(1) + "Tab").classList.toggle("hidden", t !== tab);
+        document.getElementById("tab" + t.charAt(0).toUpperCase() + t.slice(1) + "Btn").classList.toggle("active", t === tab);
+      });
+    }
+
+    function handleImageUpload(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(ev) {
+        const img = new Image();
+        img.onload = function() {
+          const canvas = document.createElement("canvas");
+          const maxW = 500;
+          const scale = Math.min(1, maxW / img.width);
+          canvas.width = img.width * scale;
+          canvas.height = img.height * scale;
+          canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+          uploadedBase64 = canvas.toDataURL("image/jpeg", 0.65);
+          const prev = document.getElementById("imgPreview");
+          prev.src = uploadedBase64;
+          prev.classList.remove("hidden");
+        };
+        img.src = ev.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    async function saveProduct() {
+      const name = document.getElementById("prodName").value.trim();
+      const categoryId = document.getElementById("prodCat").value;
+      const price = Number(document.getElementById("prodPrice").value);
+      const moq = Number(document.getElementById("prodMoq").value) || 1;
+      const editId = document.getElementById("editProdId").value;
+
+      if (!name || !categoryId || !price) {
+        alert("Naam, Category aur Rate zaroori hai! (Pehle Categories tab mein category banayein)");
+        return;
+      }
+
+      const btn = document.getElementById("saveProdBtn");
+      btn.innerText = "Saving...";
+      btn.disabled = true;
+
+      try {
+        const catObj = categories.find(c => c.id === categoryId);
+        const data = {
+          name, categoryId, categoryName: catObj ? catObj.name : "",
+          price, moq, createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+        if (uploadedBase64) data.image = uploadedBase64;
+
+        if (editId) {
+          delete data.createdAt;
+          await db.collection("products").doc(editId).update(data);
+        } else {
+          await db.collection("products").add(data);
+        }
+        resetProdForm();
+        await loadProducts();
+        alert("Product save ho gaya!");
+      } catch (err) {
+        alert("Error: " + err.message);
+      } finally {
+        btn.innerText = "Product Save Karein";
+        btn.disabled = false;
+      }
+    }
+
+    function editProduct(id) {
+      const p = products.find(x => x.id === id);
+      if (!p) return;
+      document.getElementById("editProdId").value = p.id;
+      document.getElementById("prodName").value = p.name;
+      document.getElementById("prodCat").value = p.categoryId;
+      document.getElementById("prodPrice").value = p.price;
+      document.getElementById("prodMoq").value = p.moq;
+      uploadedBase64 = p.image || "";
+      if (uploadedBase64) {
+        const prev = document.getElementById("imgPreview");
+        prev.src = uploadedBase64;
+        prev.classList.remove("hidden");
+      }
+      document.getElementById("prodFormTitle").innerText = "Product Edit Karein";
+      document.getElementById("cancelEditBtn").classList.remove("hidden");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    function resetProdForm() {
+      document.getElementById("editProdId").value = "";
+      document.getElementById("prodName").value = "";
+      document.getElementById("prodPrice").value = "";
+      document.getElementById("prodMoq").value = "6";
+      document.getElementById("prodImgFile").value = "";
+      document.getElementById("imgPreview").classList.add("hidden");
+      document.getElementById("prodFormTitle").innerText = "Naya Product Daalein";
+      document.getElementById("cancelEditBtn").classList.add("hidden");
+      uploadedBase64 = "";
+    }
+
+    async function deleteProduct(id) {
+      if (!confirm("Kya is product ko delete karna hai?")) return;
+      await db.collection("products").doc(id).delete();
+      await loadProducts();
+    }
+
+    function renderAdminProducts() {
+      const filter = document.getElementById("adminFilterCat").value;
+      const list = filter === "ALL" ? products : products.filter(p => p.categoryId === filter);
+      const el = document.getElementById("adminProdList");
+      if (list.length === 0) {
+        el.innerHTML = `<p style="color:var(--muted);font-size:14px;">Koi product nahi mila.</p>`;
+        return;
+      }
+      el.innerHTML = list.map(p => `
+        <div class="list-item">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <img src="${p.image || 'https://via.placeholder.com/60'}" />
+            <div>
+              <div style="font-weight:600;font-size:14px;">${p.name}</div>
+              <div style="font-size:12px;color:#555;">₹${p.price} | MOQ: ${p.moq} | <span class="badge">${p.categoryName}</span></div>
+            </div>
+          </div>
+          <div style="display:flex;gap:6px;">
+            <button class="btn-sm" style="background:var(--primary);" onclick="editProduct('${p.id}')">Edit</button>
+            <button class="btn-sm" style="background:var(--danger);" onclick="deleteProduct('${p.id}')">Del</button>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    async function saveCategory() {
+      const name = document.getElementById("catName").value.trim();
+      const password = document.getElementById("catPass").value.trim();
+      if (!name || !password) { alert("Category naam aur password dono likhein."); return; }
+      await db.collection("categories").add({
+        name, password, createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      document.getElementById("catName").value = "";
+      document.getElementById("catPass").value = "";
+      await loadCategories();
+      alert("Category save ho gayi!");
+    }
+
+    async function deleteCategory(id) {
+      if (!confirm("Is category ko delete karein?")) return;
+      await db.collection("categories").doc(id).delete();
+      await loadCategories();
+    }
+
+    function copyCategoryLink(name, pass) {
+      const baseUrl = window.location.origin + window.location.pathname;
+      const shareText = `*${appSettings.shopName} - ${name} Wholesale Catalog*\nLink: ${baseUrl}?pass=${encodeURIComponent(pass)}\nPassword: ${pass}`;
+      navigator.clipboard.writeText(shareText).then(() => alert("Link aur Password copy ho gaya! Ab WhatsApp par paste kar dein."));
+    }
+
+    function renderAdminCategories() {
+      const el = document.getElementById("adminCatList");
+      if (categories.length === 0) {
+        el.innerHTML = `<p style="color:var(--muted);font-size:14px;">Pehle upar se ek category banayein.</p>`;
+        return;
+      }
+      el.innerHTML = categories.map(c => `
+        <div class="list-item">
+          <div>
+            <div style="font-weight:700;">${c.name}</div>
+            <div style="font-size:13px;color:var(--primary);">Password: <strong>${c.password}</strong></div>
+          </div>
+          <div style="display:flex;gap:6px;">
+            <button class="btn-sm" style="background:var(--success);" onclick="copyCategoryLink('${c.name}','${c.password}')">Share</button>
+            <button class="btn-sm" style="background:var(--danger);" onclick="deleteCategory('${c.id}')">Del</button>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    function populateCategoryDropdowns() {
+      const opts = categories.map(c => `<option value="${c.id}">${c.name}</option>`).join("");
+      document.getElementById("prodCat").innerHTML = opts || `<option value="">Pehle Category Banayein</option>`;
+      document.getElementById("adminFilterCat").innerHTML = `<option value="ALL">Saari Categories</option>` + opts;
+    }
+
+    async function saveSettings() {
+      const shopName = document.getElementById("setShopName").value.trim() || "Raza Traders";
+      const whatsapp = document.getElementById("setWhatsapp").value.trim();
+      const adminPin = document.getElementById("setAdminPin").value.trim() || "7860";
+      await db.collection("settings").doc("config").set({ shopName, whatsapp, adminPin }, { merge: true });
+      appSettings = { shopName, whatsapp, adminPin };
+      document.getElementById("hdrShopName").innerText = shopName;
+      alert("Settings save ho gayi!");
+    }
+
+    initApp();
+  </script>
+</body>
+</html>
 
