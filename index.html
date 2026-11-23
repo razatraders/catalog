@@ -1,693 +1,709 @@
 <!DOCTYPE html>
 <html lang="hi">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Raza Traders - Wholesale Catalog</title>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-  <style>
-    :root {
-      --primary: #1a56db;
-      --primary-dark: #1e40af;
-      --success: #16a34a;
-      --danger: #dc2626;
-      --bg: #f3f4f6;
-      --card: #ffffff;
-      --text: #111827;
-      --muted: #6b7280;
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    body { background: var(--bg); color: var(--text); padding-bottom: 90px; }
-    .hidden { display: none !important; }
-
-    /* Header */
-    header {
-      background: var(--primary); color: #fff; padding: 14px 16px;
-      display: flex; justify-content: space-between; align-items: center;
-      position: sticky; top: 0; z-index: 50; box-shadow: 0 2px 6px rgba(0,0,0,0.12);
-    }
-    header h1 { font-size: 18px; font-weight: 700; }
-    header small { display: block; font-size: 12px; opacity: 0.9; }
-    .btn-sm {
-      background: rgba(255,255,255,0.2); color: #fff; border: none;
-      padding: 6px 12px; border-radius: 6px; font-size: 13px; cursor: pointer;
-    }
-
-    /* Container & Cards */
-    .container { max-width: 720px; margin: 0 auto; padding: 14px; }
-    .card {
-      background: var(--card); border-radius: 12px; padding: 16px;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.08); margin-bottom: 14px;
-    }
-    .login-box { max-width: 380px; margin: 50px auto; text-align: center; }
-    .login-box h2 { margin-bottom: 6px; color: var(--primary); }
-    .login-box p { color: var(--muted); font-size: 14px; margin-bottom: 18px; }
-
-    /* Inputs & Buttons */
-    input, select {
-      width: 100%; padding: 11px 12px; border: 1px solid #d1d5db;
-      border-radius: 8px; font-size: 15px; margin-bottom: 12px; background: #fff;
-    }
-    label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; color: #374151; }
-    .btn {
-      width: 100%; padding: 12px; border: none; border-radius: 8px;
-      font-size: 15px; font-weight: 600; cursor: pointer; color: #fff; background: var(--primary);
-    }
-    .btn:active { opacity: 0.9; }
-    .btn-success { background: var(--success); }
-    .btn-danger { background: var(--danger); }
-    .btn-outline { background: #fff; color: var(--primary); border: 1px solid var(--primary); }
-
-    /* Product Grid */
-    .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
-    .prod-card {
-      background: #fff; border-radius: 10px; overflow: hidden;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.08); display: flex; flex-direction: column;
-    }
-    .prod-img {
-      width: 100%; height: 150px; object-fit: cover; background: #e5e7eb; cursor: pointer;
-    }
-    .prod-body { padding: 10px; flex: 1; display: flex; flex-direction: column; justify-content: space-between; }
-    .prod-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
-    .prod-price { font-size: 16px; font-weight: 700; color: var(--primary); }
-    .prod-moq {
-      display: inline-block; background: #fef3c7; color: #92400e;
-      font-size: 11px; font-weight: 600; padding: 2px 6px; border-radius: 4px; margin: 4px 0 8px;
-    }
-    .qty-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
-    .qty-btn {
-      width: 32px; height: 32px; border-radius: 6px; border: none;
-      background: var(--primary); color: #fff; font-size: 18px; font-weight: 700; cursor: pointer;
-    }
-    .qty-val { font-weight: 700; font-size: 15px; }
-    .add-btn {
-      width: 100%; padding: 8px; border: none; border-radius: 6px;
-      background: var(--primary); color: #fff; font-size: 13px; font-weight: 600; cursor: pointer;
-    }
-
-    /* Floating Cart Bar */
-    .cart-bar {
-      position: fixed; bottom: 0; left: 0; right: 0; background: #111827; color: #fff;
-      padding: 12px 16px; display: flex; justify-content: space-between; align-items: center;
-      z-index: 60; box-shadow: 0 -2px 10px rgba(0,0,0,0.2);
-    }
-    .cart-bar button {
-      background: var(--success); color: #fff; border: none; padding: 10px 18px;
-      border-radius: 8px; font-weight: 700; font-size: 14px; cursor: pointer;
-    }
-
-    /* Admin Tabs */
-    .tabs { display: flex; gap: 6px; margin-bottom: 14px; }
-    .tab-btn {
-      flex: 1; padding: 10px 6px; border: none; border-radius: 8px;
-      background: #e5e7eb; color: #374151; font-weight: 600; font-size: 13px; cursor: pointer;
-    }
-    .tab-btn.active { background: var(--primary); color: #fff; }
-    .list-item {
-      display: flex; align-items: center; justify-content: space-between; gap: 10px;
-      padding: 10px 0; border-bottom: 1px solid #e5e7eb;
-    }
-    .list-item img { width: 52px; height: 52px; border-radius: 8px; object-fit: cover; background: #eee; }
-    .badge { font-size: 11px; padding: 2px 6px; border-radius: 4px; background: #dbeafe; color: #1e40af; font-weight: 600; }
-
-    /* Modal */
-    .modal-bg {
-      position: fixed; inset: 0; background: rgba(0,0,0,0.65);
-      display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 100;
-    }
-    .modal {
-      background: #fff; border-radius: 12px; padding: 18px; width: 100%;
-      max-width: 440px; max-height: 85vh; overflow-y: auto;
-    }
-    .img-zoom { max-width: 100%; max-height: 75vh; border-radius: 10px; }
-    .preview-thumb { width: 90px; height: 90px; object-fit: cover; border-radius: 8px; margin-bottom: 10px; border: 1px solid #ccc; }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Raza Traders - Wholesale Catalog</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+:root{--p:#1a56db;--s:#16a34a;--d:#dc2626;--bg:#f3f4f6;--m:#6b7280}
+*{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+body{background:var(--bg);color:#111827;padding-bottom:90px}
+.hidden{display:none!important}
+header{background:var(--p);color:#fff;padding:13px 15px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:50;box-shadow:0 2px 6px rgba(0,0,0,.12)}
+header h1{font-size:18px;font-weight:700}header small{display:block;font-size:12px;opacity:.9}
+.btn-sm{background:rgba(255,255,255,.2);color:#fff;border:none;padding:6px 10px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer}
+.container{max-width:720px;margin:0 auto;padding:12px}
+.card{background:#fff;border-radius:12px;padding:15px;box-shadow:0 1px 4px rgba(0,0,0,.08);margin-bottom:12px}
+.login-box{max-width:380px;margin:30px auto;text-align:center}
+.login-box h2{margin-bottom:4px;color:var(--p)}.login-box p{color:var(--m);font-size:13px;margin-bottom:12px}
+.auth-tabs{display:flex;gap:6px;margin-bottom:14px}
+.auth-tab{flex:1;padding:9px;border:none;border-radius:8px;background:#e5e7eb;font-weight:600;font-size:13px;cursor:pointer;color:#374151}
+.auth-tab.active{background:var(--p);color:#fff}
+input,select{width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;margin-bottom:10px;background:#fff}
+label{display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#374151;text-align:left}
+.btn{width:100%;padding:11px;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;color:#fff;background:var(--p)}
+.btn-s{background:var(--s)}.btn-d{background:var(--d)}.btn-o{background:#fff;color:var(--p);border:1px solid var(--p)}
+.cat-pills{display:flex;gap:6px;overflow-x:auto;padding-bottom:8px;margin-bottom:8px}
+.pill{padding:7px 12px;border-radius:20px;border:1px solid var(--p);background:#fff;color:var(--p);font-size:12px;font-weight:600;white-space:nowrap;cursor:pointer}
+.pill.active{background:var(--p);color:#fff}
+.lock-banner{background:#fef3c7;border:1px solid #f59e0b;color:#92400e;padding:10px 12px;border-radius:10px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px;font-weight:600}
+.lock-banner button{background:#d97706;color:#fff;border:none;padding:7px 12px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.prod-card{background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.08);display:flex;flex-direction:column}
+.prod-img{width:100%;height:145px;object-fit:cover;background:#e5e7eb;cursor:pointer}
+.prod-body{padding:9px;flex:1;display:flex;flex-direction:column;justify-content:space-between}
+.prod-title{font-size:13px;font-weight:600;margin-bottom:4px}
+.prod-price{font-size:15px;font-weight:700;color:var(--p)}
+.rate-locked{font-size:12px;font-weight:600;color:#b45309;background:#fef3c7;padding:4px 6px;border-radius:6px;text-align:center;margin-top:4px;cursor:pointer}
+.prod-moq{display:inline-block;background:#fef3c7;color:#92400e;font-size:11px;font-weight:600;padding:2px 6px;border-radius:4px;margin:4px 0 8px}
+.qty-row{display:flex;align-items:center;justify-content:space-between;gap:4px}
+.qty-btn{width:30px;height:30px;border-radius:6px;border:none;background:var(--p);color:#fff;font-size:17px;font-weight:700;cursor:pointer;flex-shrink:0}
+.qty-inp{width:100%;height:30px;margin:0;padding:2px;text-align:center;font-weight:700;font-size:13px;border:1px solid #cbd5e1;border-radius:6px}
+.add-btn{width:100%;padding:8px;border:none;border-radius:6px;background:var(--p);color:#fff;font-size:12px;font-weight:600;cursor:pointer}
+.oos-btn{width:100%;padding:8px;border:none;border-radius:6px;background:#e5e7eb;color:#6b7280;font-size:12px;font-weight:600}
+.cart-bar{position:fixed;bottom:0;left:0;right:0;background:#111827;color:#fff;padding:11px 15px;display:flex;justify-content:space-between;align-items:center;z-index:60}
+.cart-bar button{background:var(--s);color:#fff;border:none;padding:9px 16px;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer}
+.tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:12px}
+.tab-btn{padding:9px 4px;border:none;border-radius:8px;background:#e5e7eb;color:#374151;font-weight:600;font-size:11px;cursor:pointer}
+.tab-btn.active{background:var(--p);color:#fff}
+.list-item{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 0;border-bottom:1px solid #e5e7eb}
+.list-item img{width:48px;height:48px;border-radius:8px;object-fit:cover;background:#eee}
+.badge{font-size:10px;padding:2px 6px;border-radius:4px;background:#dbeafe;color:#1e40af;font-weight:600}
+.badge-red{background:#fee2e2;color:#b91c1c}
+.ord-card{border:1px solid #e5e7eb;border-radius:8px;padding:10px;margin-bottom:10px;font-size:12px;background:#f9fafb}
+.toggle-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #f3f4f6;font-size:13px;font-weight:600}
+.toggle-row input{width:20px;height:20px;margin:0}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;padding:14px;z-index:100}
+.modal{background:#fff;border-radius:12px;padding:16px;width:100%;max-width:440px;max-height:85vh;overflow-y:auto}
+.img-zoom{max-width:100%;max-height:75vh;border-radius:10px}
+.preview-thumb{width:80px;height:80px;object-fit:cover;border-radius:8px;margin-bottom:10px;border:1px solid #ccc}
+</style>
 </head>
 <body>
+<header>
+  <div><h1 id="hdrShopName">Raza Traders</h1><small id="hdrSub">Wholesale Digital Catalog</small></div>
+  <button id="logoutBtn" class="btn-sm hidden" onclick="logout()">Logout</button>
+</header>
 
-  <!-- HEADER -->
-  <header>
-    <div>
-      <h1 id="hdrShopName">Raza Traders</h1>
-      <small id="hdrSub">Wholesale Digital Catalog</small>
+<!-- 1. LOGIN / SIGN UP -->
+<div id="loginView" class="container">
+  <div class="card login-box">
+    <h2 id="loginShopTitle">Raza Traders</h2>
+    <p>Sirf apne Mobile Number se Login karein</p>
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="modeLoginBtn" onclick="setAuthMode('login')">Login</button>
+      <button class="auth-tab" id="modeSignupBtn" onclick="setAuthMode('signup')">New Sign Up</button>
     </div>
-    <button id="logoutBtn" class="btn-sm hidden" onclick="logout()">Logout</button>
-  </header>
-
-  <!-- 1. LOGIN VIEW -->
-  <div id="loginView" class="container">
-    <div class="card login-box">
-      <h2 id="loginShopTitle">Raza Traders</h2>
-      <p>Apna Category Password daalein</p>
-      <input type="text" id="custPassInput" placeholder="Jaise: GOG123" autocomplete="off" />
-      <button class="btn" onclick="customerLogin()">Catalog Kholein</button>
-      <p id="loginErr" style="color:var(--danger); margin-top:10px; font-size:13px;"></p>
-      <hr style="margin:20px 0; border:none; border-top:1px solid #e5e7eb;" />
-      <button class="btn btn-outline" onclick="openAdminPrompt()">Admin Login (Owner)</button>
-    </div>
-  </div>
-
-  <!-- 2. CUSTOMER CATALOG VIEW -->
-  <div id="customerView" class="container hidden">
-    <input type="text" id="searchInput" placeholder="Model ya item search karein..." oninput="renderCustomerProducts()" />
-    <div id="custProductGrid" class="grid"></div>
-    <p id="custEmptyMsg" class="hidden" style="text-align:center; color:var(--muted); margin-top:30px;">Is category mein abhi koi item nahi hai.</p>
-  </div>
-
-  <!-- FLOATING CART BAR -->
-  <div id="cartBar" class="cart-bar hidden">
-    <div>
-      <div style="font-size:13px; opacity:0.85;"><span id="cartPcs">0</span> Pieces Selected</div>
-      <div style="font-size:17px; font-weight:700;">Total: ₹<span id="cartTotal">0</span></div>
-    </div>
-    <button onclick="openCartModal()">Order Dekhein &gt;</button>
-  </div>
-
-  <!-- 3. ADMIN PANEL VIEW -->
-  <div id="adminView" class="container hidden">
-    <div class="tabs">
-      <button class="tab-btn active" id="tabProdBtn" onclick="switchTab('prod')">Products</button>
-      <button class="tab-btn" id="tabCatBtn" onclick="switchTab('cat')">Categories & Lock</button>
-      <button class="tab-btn" id="tabSetBtn" onclick="switchTab('set')">Settings</button>
-    </div>
-
-    <!-- ADMIN TAB 1: PRODUCTS -->
-    <div id="adminProdTab">
-      <div class="card">
-        <h3 id="prodFormTitle" style="margin-bottom:12px;">Naya Product Daalein</h3>
-        <input type="hidden" id="editProdId" />
-        <label>Product Photo (Gallery se chunein)</label>
-        <input type="file" id="prodImgFile" accept="image/*" onchange="handleImageUpload(event)" />
-        <img id="imgPreview" class="preview-thumb hidden" />
-        <label>Model / Item ka Naam</label>
-        <input type="text" id="prodName" placeholder="Jaise: Goggle Model 101" />
-        <label>Category Chunein</label>
-        <select id="prodCat"></select>
-        <div style="display:flex; gap:10px;">
-          <div style="flex:1;">
-            <label>Wholesale Rate (₹ / pc)</label>
-            <input type="number" id="prodPrice" placeholder="50" />
-          </div>
-          <div style="flex:1;">
-            <label>MOQ (Min Pieces)</label>
-            <input type="number" id="prodMoq" value="6" />
-          </div>
-        </div>
-        <button class="btn btn-success" id="saveProdBtn" onclick="saveProduct()">Product Save Karein</button>
-        <button class="btn btn-outline hidden" id="cancelEditBtn" style="margin-top:8px;" onclick="resetProdForm()">Cancel Edit</button>
-      </div>
-
-      <div class="card">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-          <h3>Saare Products (<span id="totalProdCount">0</span>)</h3>
-        </div>
-        <select id="adminFilterCat" onchange="renderAdminProducts()">
-          <option value="ALL">Saari Categories</option>
-        </select>
-        <div id="adminProdList"></div>
-      </div>
-    </div>
-
-    <!-- ADMIN TAB 2: CATEGORIES & PASSWORDS -->
-    <div id="adminCatTab" class="hidden">
-      <div class="card">
-        <h3 style="margin-bottom:12px;">Nayi Category aur Password Banayein</h3>
-        <label>Category ka Naam</label>
-        <input type="text" id="catName" placeholder="Jaise: Goggles, Caps, Winter Wear" />
-        <label>Is Category ka Secret Password</label>
-        <input type="text" id="catPass" placeholder="Jaise: GOG123" />
-        <button class="btn" onclick="saveCategory()">Category Save Karein</button>
-      </div>
-      <div class="card">
-        <h3 style="margin-bottom:10px;">Categories List</h3>
-        <div id="adminCatList"></div>
-      </div>
-    </div>
-
-    <!-- ADMIN TAB 3: SETTINGS -->
-    <div id="adminSetTab" class="hidden">
-      <div class="card">
-        <h3 style="margin-bottom:12px;">Dukaan aur WhatsApp Settings</h3>
-        <label>Dukaan ka Naam</label>
-        <input type="text" id="setShopName" placeholder="Raza Traders" />
-        <label>Order lene wala WhatsApp Number (10 digit)</label>
-        <input type="tel" id="setWhatsapp" placeholder="Jaise: 9876543210" />
-        <label>Admin Login PIN</label>
-        <input type="text" id="setAdminPin" placeholder="Default: 7860" />
-        <button class="btn btn-success" onclick="saveSettings()">Settings Save Karein</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- CART MODAL -->
-  <div id="cartModal" class="modal-bg hidden">
-    <div class="modal">
-      <h3 style="margin-bottom:10px;">Aapka Wholesale Order</h3>
-      <div id="cartItemsList" style="margin-bottom:12px; font-size:14px;"></div>
-      <div style="font-weight:700; font-size:16px; margin-bottom:14px; border-top:1px solid #eee; padding-top:8px;">
-        Grand Total: ₹<span id="modalTotal">0</span> (<span id="modalPcs">0</span> pcs)
-      </div>
+    <div id="signupNameBox" class="hidden">
       <label>Aapka Naam / Dukaan ka Naam</label>
-      <input type="text" id="custName" placeholder="Jaise: Sharma Opticals" />
-      <label>Shehar / Market</label>
-      <input type="text" id="custCity" placeholder="Jaise: Raighar / Nabarangpur" />
-      <button class="btn btn-success" onclick="sendWhatsAppOrder()">WhatsApp par Order Bhejein</button>
-      <button class="btn btn-outline" style="margin-top:8px;" onclick="closeCartModal()">Band Karein</button>
+      <input type="text" id="custSignupName" placeholder="Jaise: Sharma Opticals" />
+    </div>
+    <label>Mobile Number (10 Digit - Zaroori)</label>
+    <input type="tel" id="custMobileLogin" maxlength="10" placeholder="Jaise: 9876543210" />
+    <button class="btn" id="loginBtn" onclick="handleCustomerAuth()">Login Karein</button>
+    <p id="loginErr" style="color:var(--d);margin-top:10px;font-size:13px;"></p>
+    <hr style="margin:16px 0;border:none;border-top:1px solid #e5e7eb;" />
+    <button class="btn btn-o" onclick="openAdminPrompt()">Admin Login (Owner)</button>
+  </div>
+</div>
+
+<!-- 2. CUSTOMER CATALOG -->
+<div id="customerView" class="container hidden">
+  <div id="catPills" class="cat-pills"></div>
+  <div id="lockBanner" class="lock-banner hidden">
+    <span>🔒 Is category ke Rate aur Order locked hain.</span>
+    <button onclick="unlockCurrentCat()">🔓 Unlock Rates</button>
+  </div>
+  <input type="text" id="searchInput" placeholder="Model ya item search karein..." oninput="renderCustomerProducts()" />
+  <div id="custProductGrid" class="grid"></div>
+  <p id="custEmptyMsg" class="hidden" style="text-align:center;color:var(--m);margin-top:30px;">Is category mein koi item nahi hai.</p>
+</div>
+
+<div id="cartBar" class="cart-bar hidden">
+  <div><div style="font-size:12px;opacity:.85;"><span id="cartPcs">0</span> Pieces Selected</div><div style="font-size:16px;font-weight:700;">Total: ₹<span id="cartTotal">0</span></div></div>
+  <button onclick="openCartModal()">Estimate / Order &gt;</button>
+</div>
+
+<!-- 3. ADMIN PANEL -->
+<div id="adminView" class="container hidden">
+  <div class="tabs">
+    <button class="tab-btn active" id="tabProdBtn" onclick="switchTab('prod')">Products</button>
+    <button class="tab-btn" id="tabCatBtn" onclick="switchTab('cat')">Categories</button>
+    <button class="tab-btn" id="tabOrdBtn" onclick="switchTab('ord')">Orders/Users</button>
+    <button class="tab-btn" id="tabSetBtn" onclick="switchTab('set')">Controls</button>
+  </div>
+
+  <!-- TAB: PRODUCTS -->
+  <div id="adminProdTab">
+    <div class="card">
+      <h3 id="prodFormTitle" style="margin-bottom:10px;">Naya Product Daalein</h3>
+      <input type="hidden" id="editProdId" />
+      <label>Product Photo</label>
+      <input type="file" id="prodImgFile" accept="image/*" onchange="handleImageUpload(event)" />
+      <img id="imgPreview" class="preview-thumb hidden" />
+      <label>Model / Item ka Naam</label>
+      <input type="text" id="prodName" placeholder="Jaise: Goggle Model 101" />
+      <label>Category</label>
+      <select id="prodCat"></select>
+      <div style="display:flex;gap:10px;">
+        <div style="flex:1;"><label>Rate (₹ / pc)</label><input type="number" id="prodPrice" placeholder="32" /></div>
+        <div style="flex:1;"><label>MOQ (1 Set Pcs)</label><input type="number" id="prodMoq" value="12" /></div>
+      </div>
+      <button class="btn btn-s" id="saveProdBtn" onclick="saveProduct()">Product Save Karein</button>
+      <button class="btn btn-o hidden" id="cancelEditBtn" style="margin-top:8px;" onclick="resetProdForm()">Cancel Edit</button>
+    </div>
+    <div class="card">
+      <h3 style="margin-bottom:8px;">Saare Products (<span id="totalProdCount">0</span>)</h3>
+      <select id="adminFilterCat" onchange="renderAdminProducts()"><option value="ALL">Saari Categories</option></select>
+      <div id="adminProdList"></div>
     </div>
   </div>
 
-  <!-- IMAGE ZOOM MODAL -->
-  <div id="zoomModal" class="modal-bg hidden" onclick="this.classList.add('hidden')">
-    <img id="zoomImg" class="img-zoom" />
+  <!-- TAB: CATEGORIES -->
+  <div id="adminCatTab" class="hidden">
+    <div class="card">
+      <h3 style="margin-bottom:10px;">Nayi Category aur Rate Password</h3>
+      <label>Category ka Naam</label><input type="text" id="catName" placeholder="GOGGLES, CAPS, WINTER" />
+      <label>Rate Unlock Password</label><input type="text" id="catPass" placeholder="G300" />
+      <button class="btn" onclick="saveCategory()">Category Save Karein</button>
+    </div>
+    <div class="card"><h3 style="margin-bottom:8px;">Categories List</h3><div id="adminCatList"></div></div>
   </div>
 
-  <script>
-    // Aapka Firebase Config
-    const firebaseConfig = {
-      apiKey: "AIzaSyBVliVOy2wYTv5B2Xn9FRg6P7FkeQ3cpLY",
-      authDomain: "raza-traders-934e9.firebaseapp.com",
-      projectId: "raza-traders-934e9",
-      storageBucket: "raza-traders-934e9.firebasestorage.app",
-      messagingSenderId: "300804813737",
-      appId: "1:300804813737:web:b6371221461fc983e70ab8"
+  <!-- TAB: ORDERS & USERS -->
+  <div id="adminOrdTab" class="hidden">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <h3>Signed-Up Customers (<span id="totalCustCount">0</span>)</h3>
+        <button class="btn-sm" style="background:var(--p);" onclick="loadAdminRecords()">Refresh</button>
+      </div>
+      <div style="display:flex;gap:6px;margin-bottom:8px;">
+        <input type="tel" id="manualBlockNum" maxlength="10" placeholder="Block karne ke liye 10-digit no." style="margin:0;" />
+        <button class="btn-sm" style="background:var(--d);white-space:nowrap;" onclick="manualBlockCustomer()">Block</button>
+      </div>
+      <div id="adminCustList"></div>
+    </div>
+    <div class="card">
+      <h3 style="margin-bottom:8px;">Order History (<span id="totalOrdCount">0</span>)</h3>
+      <div id="adminOrdList"></div>
+    </div>
+  </div>
+
+  <!-- TAB: CONTROLS -->
+  <div id="adminSetTab" class="hidden">
+    <div class="card">
+      <h3 style="margin-bottom:10px;">Admin Authorities & Controls</h3>
+      <div class="toggle-row"><span>Catalog Chalu Rakhein (ON/OFF)</span><input type="checkbox" id="ctrlCatalogOn" checked /></div>
+      <div class="toggle-row"><span>Strict Set Order (+12, +24, +36)</span><input type="checkbox" id="ctrlStrictSet" checked /></div>
+      <div style="margin-top:12px;">
+        <label>Consignor / Dukaan ka Naam</label><input type="text" id="setShopName" placeholder="Raza Traders" />
+        <label>WhatsApp Number (10 digit)</label><input type="tel" id="setWhatsapp" placeholder="9876543210" />
+        <label>Admin Login PIN</label><input type="text" id="setAdminPin" placeholder="7860" />
+      </div>
+      <button class="btn btn-s" onclick="saveSettings()">Settings & Controls Save Karein</button>
+    </div>
+  </div>
+</div>
+
+<!-- CART / ESTIMATE MODAL -->
+<div id="cartModal" class="modal-bg hidden">
+  <div class="modal">
+    <h3 style="margin-bottom:4px;">Estimate Summary</h3>
+    <div style="font-size:12px;color:var(--m);margin-bottom:10px;">Consignor: <strong id="modalConsignor">Raza Traders</strong></div>
+    <div id="cartItemsList" style="margin-bottom:10px;font-size:13px;"></div>
+    <div style="font-weight:700;font-size:15px;margin-bottom:12px;border-top:1px solid #eee;padding-top:8px;">
+      Grand Total: ₹<span id="modalTotal">0</span> (<span id="modalPcs">0</span> pcs)
+    </div>
+    <label>Consignee Mobile Number (10 Digit - Zaroori) *</label>
+    <input type="tel" id="custMobileOrder" maxlength="10" placeholder="10 digit mobile number" />
+    <label>Consignee / Dukaan ka Naam (Optional)</label>
+    <input type="text" id="custName" placeholder="Jaise: Sharma Opticals" />
+    <button class="btn btn-s" id="waSendBtn" onclick="sendOrderAndPDF()">PDF Estimate & WhatsApp Order</button>
+    <button class="btn btn-o" style="margin-top:8px;" onclick="closeCartModal()">Band Karein</button>
+  </div>
+</div>
+
+<div id="zoomModal" class="modal-bg hidden" onclick="this.classList.add('hidden')"><img id="zoomImg" class="img-zoom" /></div>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyBVliVOy2wYTv5B2Xn9FRg6P7FkeQ3cpLY",
+  authDomain: "raza-traders-934e9.firebaseapp.com",
+  projectId: "raza-traders-934e9",
+  storageBucket: "raza-traders-934e9.firebasestorage.app",
+  messagingSenderId: "300804813737",
+  appId: "1:300804813737:web:b6371221461fc983e70ab8"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+let appSettings = { shopName: "Raza Traders", whatsapp: "", adminPin: "7860", catalogOn: true, strictSet: true };
+let categories = [], products = [], orders = [], customers = [];
+let unlockedCatIds = new Set(), activeCategory = null, activeMobile = "", activeCustName = "", authMode = "login", cart = {}, uploadedBase64 = "";
+
+async function initApp() {
+  try {
+    const setDoc = await db.collection("settings").doc("config").get();
+    if (setDoc.exists) appSettings = { ...appSettings, ...setDoc.data() };
+    document.getElementById("hdrShopName").innerText = appSettings.shopName;
+    document.getElementById("loginShopTitle").innerText = appSettings.shopName;
+    document.getElementById("modalConsignor").innerText = appSettings.shopName;
+    document.getElementById("setShopName").value = appSettings.shopName;
+    document.getElementById("setWhatsapp").value = appSettings.whatsapp || "";
+    document.getElementById("setAdminPin").value = appSettings.adminPin || "7860";
+    document.getElementById("ctrlCatalogOn").checked = appSettings.catalogOn !== false;
+    document.getElementById("ctrlStrictSet").checked = appSettings.strictSet !== false;
+    await loadCategories();
+    await loadProducts();
+  } catch (e) { alert("Database Error: " + e.message); }
+}
+
+function setAuthMode(mode) {
+  authMode = mode;
+  document.getElementById("modeLoginBtn").classList.toggle("active", mode === "login");
+  document.getElementById("modeSignupBtn").classList.toggle("active", mode === "signup");
+  document.getElementById("signupNameBox").classList.toggle("hidden", mode === "login");
+  document.getElementById("loginBtn").innerText = mode === "login" ? "Login Karein" : "Sign Up & Catalog Kholein";
+  document.getElementById("loginErr").innerText = "";
+}
+
+async function loadCategories() {
+  const snap = await db.collection("categories").orderBy("createdAt", "desc").get();
+  categories = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  renderAdminCategories(); populateCategoryDropdowns();
+}
+
+async function loadProducts() {
+  const snap = await db.collection("products").orderBy("createdAt", "desc").get();
+  products = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  document.getElementById("totalProdCount").innerText = products.length;
+  renderAdminProducts();
+}
+
+async function loadAdminRecords() {
+  const [oSnap, cSnap] = await Promise.all([
+    db.collection("orders").orderBy("createdAt", "desc").limit(100).get(),
+    db.collection("customers").get()
+  ]);
+  orders = oSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  customers = cSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  document.getElementById("totalOrdCount").innerText = orders.length;
+  document.getElementById("totalCustCount").innerText = customers.length;
+  renderAdminCustomers(); renderAdminOrders();
+}
+
+async function handleCustomerAuth() {
+  const errEl = document.getElementById("loginErr");
+  if (appSettings.catalogOn === false) { errEl.innerText = "Catalog abhi band hai."; return; }
+  const mob = document.getElementById("custMobileLogin").value.replace(/\D/g, "");
+  if (mob.length !== 10) { errEl.innerText = "Kripya sahi 10-digit mobile number daalein."; return; }
+
+  const btn = document.getElementById("loginBtn");
+  btn.innerText = "Checking..."; btn.disabled = true; errEl.innerText = "";
+  try {
+    const cRef = db.collection("customers").doc(mob);
+    const cDoc = await cRef.get();
+    if (cDoc.exists && cDoc.data().blocked === true) {
+      errEl.innerText = "Aapka number block kar diya gaya hai. Kripya Raza Traders se sampark karein."; return;
+    }
+    if (authMode === "login") {
+      if (!cDoc.exists) {
+        errEl.innerText = "Ye number registered nahi hai! Pehle 'New Sign Up' par tap karke 1 baar register karein.";
+        return;
+      }
+      activeCustName = cDoc.data().name || "Customer";
+      await cRef.set({ lastSeen: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+    } else {
+      const sName = document.getElementById("custSignupName").value.trim() || "Customer";
+      activeCustName = sName;
+      await cRef.set({
+        mobile: mob, name: sName, blocked: false,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+    }
+
+    activeMobile = mob; unlockedCatIds = new Set(); cart = {};
+    // Auto-unlock if ?pass= is in URL
+    const urlPass = new URLSearchParams(window.location.search).get("pass");
+    if (urlPass) {
+      const m = categories.find(c => (c.password || "").trim().toLowerCase() === urlPass.trim().toLowerCase());
+      if (m) { unlockedCatIds.add(m.id); activeCategory = m; }
+    }
+    if (!activeCategory && categories.length) activeCategory = categories[0];
+
+    document.getElementById("custMobileOrder").value = mob;
+    document.getElementById("custName").value = activeCustName === "Customer" ? "" : activeCustName;
+    document.getElementById("hdrSub").innerText = activeCustName + " (" + mob + ")";
+    document.getElementById("loginView").classList.add("hidden");
+    document.getElementById("customerView").classList.remove("hidden");
+    document.getElementById("logoutBtn").classList.remove("hidden");
+    renderCatPills(); renderCustomerProducts(); updateCartBar();
+  } catch (e) { errEl.innerText = "Error: " + e.message; }
+  finally { btn.innerText = authMode === "login" ? "Login Karein" : "Sign Up & Catalog Kholein"; btn.disabled = false; }
+}
+
+function renderCatPills() {
+  const el = document.getElementById("catPills");
+  el.innerHTML = categories.map(c => {
+    const isUnl = unlockedCatIds.has(c.id);
+    const isAct = activeCategory && c.id === activeCategory.id;
+    return `<button class="pill ${isAct ? 'active' : ''}" onclick="selectActiveCat('${c.id}')">${isUnl ? '🔓' : '🔒'} ${c.name}</button>`;
+  }).join("");
+}
+
+function selectActiveCat(id) {
+  activeCategory = categories.find(c => c.id === id);
+  renderCatPills(); renderCustomerProducts();
+}
+
+function unlockCurrentCat() {
+  if (!activeCategory) return;
+  const pass = prompt(`"${activeCategory.name}" ke Rate dekhne ke liye Password daalein:`);
+  if (!pass) return;
+  if ((activeCategory.password || "").trim().toLowerCase() === pass.trim().toLowerCase()) {
+    unlockedCatIds.add(activeCategory.id);
+    renderCatPills(); renderCustomerProducts();
+  } else alert("Galat Password! Sahi password ke liye Raza Traders se sampark karein.");
+}
+
+function openAdminPrompt() {
+  const pin = prompt("Admin PIN daalein:");
+  if (pin === null) return;
+  if (pin.trim() === String(appSettings.adminPin || "7860")) {
+    document.getElementById("hdrSub").innerText = "Admin Panel";
+    document.getElementById("loginView").classList.add("hidden");
+    document.getElementById("adminView").classList.remove("hidden");
+    document.getElementById("logoutBtn").classList.remove("hidden");
+    loadAdminRecords();
+  } else alert("Galat Admin PIN!");
+}
+
+function logout() {
+  unlockedCatIds = new Set(); activeCategory = null; activeMobile = ""; cart = {};
+  document.getElementById("hdrSub").innerText = "Wholesale Digital Catalog";
+  ["customerView","adminView","cartBar","logoutBtn"].forEach(id => document.getElementById(id).classList.add("hidden"));
+  document.getElementById("loginView").classList.remove("hidden");
+}
+
+function renderCustomerProducts() {
+  if (!activeCategory) return;
+  const isUnlocked = unlockedCatIds.has(activeCategory.id);
+  document.getElementById("lockBanner").classList.toggle("hidden", isUnlocked);
+
+  const q = document.getElementById("searchInput").value.trim().toLowerCase();
+  const list = products.filter(p => p.categoryId === activeCategory.id && p.name.toLowerCase().includes(q));
+  const grid = document.getElementById("custProductGrid"), empty = document.getElementById("custEmptyMsg");
+  if (!list.length) { grid.innerHTML = ""; empty.classList.remove("hidden"); return; }
+  empty.classList.add("hidden");
+  const stepStrict = appSettings.strictSet !== false;
+  grid.innerHTML = list.map(p => {
+    const qty = cart[p.id] || 0, moq = Number(p.moq) || 1, step = stepStrict ? moq : 1;
+    const imgSrc = p.image || "https://via.placeholder.com/300x300?text=No+Photo";
+    if (!isUnlocked) {
+      return `<div class="prod-card">
+        <img src="${imgSrc}" class="prod-img" onclick="zoomImage('${imgSrc}')" />
+        <div class="prod-body">
+          <div class="prod-title">${p.name}</div>
+          <div class="rate-locked" onclick="unlockCurrentCat()">🔒 Rate Locked<br><small>Unlock karne ke liye tap karein</small></div>
+        </div></div>`;
+    }
+    return `<div class="prod-card">
+      <img src="${imgSrc}" class="prod-img" onclick="zoomImage('${imgSrc}')" />
+      <div class="prod-body">
+        <div>
+          <div class="prod-title">${p.name}</div>
+          <div class="prod-price">₹${p.price} <span style="font-size:11px;font-weight:400;color:#666;">/ pc</span></div>
+          <div class="prod-moq">${stepStrict ? '1 Set = ' : 'Min: '}${moq} pcs</div>
+        </div>
+        ${p.outOfStock ? `<button class="oos-btn" disabled>Out of Stock</button>` :
+          (qty === 0
+            ? `<button class="add-btn" onclick="stepQty('${p.id}', ${moq}, ${moq})">+ Add (${moq} pcs)</button>`
+            : `<div class="qty-row">
+                 <button class="qty-btn" onclick="stepQty('${p.id}', ${qty - step}, ${moq})">-</button>
+                 <input type="number" class="qty-inp" value="${qty}" onchange="manualQty('${p.id}', this.value, ${moq})" />
+                 <button class="qty-btn" onclick="stepQty('${p.id}', ${qty + step}, ${moq})">+</button>
+               </div>`)
+        }
+      </div></div>`;
+  }).join("");
+}
+
+function stepQty(prodId, newQty, moq) {
+  if (newQty < moq) delete cart[prodId]; else cart[prodId] = newQty;
+  renderCustomerProducts(); updateCartBar();
+}
+
+function manualQty(prodId, rawVal, moq) {
+  const v = parseInt(rawVal, 10);
+  if (isNaN(v) || v <= 0) delete cart[prodId];
+  else cart[prodId] = appSettings.strictSet !== false ? Math.max(moq, Math.ceil(v / moq) * moq) : Math.max(moq, v);
+  renderCustomerProducts(); updateCartBar();
+}
+
+function updateCartBar() {
+  let pcs = 0, amt = 0;
+  for (const id in cart) { const p = products.find(x => x.id === id); if (p) { pcs += cart[id]; amt += cart[id] * Number(p.price); } }
+  const bar = document.getElementById("cartBar");
+  if (pcs > 0) { document.getElementById("cartPcs").innerText = pcs; document.getElementById("cartTotal").innerText = amt; bar.classList.remove("hidden"); }
+  else bar.classList.add("hidden");
+}
+
+function openCartModal() {
+  let html = "", pcs = 0, amt = 0;
+  for (const id in cart) {
+    const p = products.find(x => x.id === id);
+    if (p) {
+      const sub = cart[id] * Number(p.price); pcs += cart[id]; amt += sub;
+      html += `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f3f4f6;"><span>${p.name} <small style="color:#666;">[${p.categoryName}]</small><br>${cart[id]} pcs x ₹${p.price}</span><strong>₹${sub}</strong></div>`;
+    }
+  }
+  document.getElementById("cartItemsList").innerHTML = html;
+  document.getElementById("modalTotal").innerText = amt;
+  document.getElementById("modalPcs").innerText = pcs;
+  if (activeMobile) document.getElementById("custMobileOrder").value = activeMobile;
+  document.getElementById("cartModal").classList.remove("hidden");
+}
+
+function closeCartModal() { document.getElementById("cartModal").classList.add("hidden"); }
+
+function generateEstimatePDF(ord) {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  doc.setFontSize(16); doc.text("ESTIMATE / BILL", 105, 16, { align: "center" });
+  doc.setFontSize(11);
+  doc.text("Consignor: " + (appSettings.shopName || "Raza Traders"), 14, 28);
+  doc.text("Consignee: " + ord.customerName + " (" + ord.mobile + ")", 14, 35);
+  doc.text("Date: " + new Date().toLocaleDateString("en-IN"), 150, 28);
+  doc.line(14, 40, 196, 40);
+  doc.setFontSize(10);
+  doc.text("#", 14, 47); doc.text("Item (Category)", 22, 47); doc.text("Qty", 125, 47); doc.text("Rate", 145, 47); doc.text("Amount", 170, 47);
+  doc.line(14, 50, 196, 50);
+  let y = 57;
+  (ord.items || []).forEach((it, i) => {
+    if (y > 270) { doc.addPage(); y = 20; }
+    doc.text(String(i + 1), 14, y);
+    doc.text(`${it.name} (${it.category || ''})`.slice(0, 48), 22, y);
+    doc.text(String(it.qty), 125, y);
+    doc.text("Rs." + it.price, 145, y);
+    doc.text("Rs." + it.sub, 170, y);
+    y += 8;
+  });
+  doc.line(14, y, 196, y); y += 8;
+  doc.setFontSize(12);
+  doc.text(`Total Pieces: ${ord.totalPcs}`, 14, y);
+  doc.text(`Grand Total: Rs.${ord.totalAmt}`, 135, y);
+  doc.save(`Estimate_${ord.mobile}.pdf`);
+}
+
+async function sendOrderAndPDF() {
+  if (!appSettings.whatsapp) { alert("Admin ne WhatsApp number set nahi kiya hai."); return; }
+  const mob = document.getElementById("custMobileOrder").value.replace(/\D/g, "");
+  if (mob.length !== 10) { alert("Order ke liye 10-digit mobile number zaroori hai!"); return; }
+  const cName = document.getElementById("custName").value.trim() || "Customer";
+  const btn = document.getElementById("waSendBtn"); btn.innerText = "Processing..."; btn.disabled = true;
+
+  let pcs = 0, amt = 0, itemsArr = [];
+  let msg = `*ESTIMATE*\n*Consignor:* ${appSettings.shopName}\n*Consignee:* ${cName} (${mob})\n-------------------\n`;
+  let idx = 1;
+  for (const id in cart) {
+    const p = products.find(x => x.id === id);
+    if (p) {
+      const sub = cart[id] * Number(p.price); pcs += cart[id]; amt += sub;
+      itemsArr.push({ name: p.name, category: p.categoryName, qty: cart[id], price: Number(p.price), sub });
+      msg += `${idx}. ${p.name} [${p.categoryName}]\n   ${cart[id]} pcs x ₹${p.price} = ₹${sub}\n`; idx++;
+    }
+  }
+  msg += `-------------------\n*Total Pieces:* ${pcs}\n*Grand Total:* ₹${amt}`;
+
+  const ordObj = { customerName: cName, mobile: mob, items: itemsArr, totalPcs: pcs, totalAmt: amt };
+  try {
+    await Promise.all([
+      db.collection("orders").add({ ...ordObj, createdAt: firebase.firestore.FieldValue.serverTimestamp() }),
+      db.collection("customers").doc(mob).set({ mobile: mob, name: cName, lastSeen: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true })
+    ]);
+    generateEstimatePDF(ordObj);
+  } catch (e) { console.error(e); }
+
+  cart = {}; closeCartModal(); renderCustomerProducts(); updateCartBar();
+  btn.innerText = "PDF Estimate & WhatsApp Order"; btn.disabled = false;
+
+  const num = appSettings.whatsapp.replace(/\D/g, "");
+  const waNum = num.length === 10 ? "91" + num : num;
+  setTimeout(() => { window.location.href = `https://wa.me/${waNum}?text=${encodeURIComponent(msg)}`; }, 600);
+}
+
+function zoomImage(src) { document.getElementById("zoomImg").src = src; document.getElementById("zoomModal").classList.remove("hidden"); }
+
+function switchTab(tab) {
+  ["prod","cat","ord","set"].forEach(t => {
+    const cap = t.charAt(0).toUpperCase() + t.slice(1);
+    document.getElementById("admin" + cap + "Tab").classList.toggle("hidden", t !== tab);
+    document.getElementById("tab" + cap + "Btn").classList.toggle("active", t === tab);
+  });
+  if (tab === "ord") loadAdminRecords();
+}
+
+function handleImageUpload(e) {
+  const file = e.target.files[0]; if (!file) return;
+  const r = new FileReader();
+  r.onload = ev => {
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement("canvas"), s = Math.min(1, 500 / img.width);
+      c.width = img.width * s; c.height = img.height * s;
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      uploadedBase64 = c.toDataURL("image/jpeg", 0.65);
+      const pr = document.getElementById("imgPreview"); pr.src = uploadedBase64; pr.classList.remove("hidden");
     };
+    img.src = ev.target.result;
+  };
+  r.readAsDataURL(file);
+}
 
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
+async function saveProduct() {
+  const name = document.getElementById("prodName").value.trim(), categoryId = document.getElementById("prodCat").value;
+  const price = Number(document.getElementById("prodPrice").value), moq = Number(document.getElementById("prodMoq").value) || 1;
+  const editId = document.getElementById("editProdId").value;
+  if (!name || !categoryId || !price) { alert("Naam, Category aur Rate zaroori hai!"); return; }
+  const btn = document.getElementById("saveProdBtn"); btn.innerText = "Saving..."; btn.disabled = true;
+  try {
+    const catObj = categories.find(c => c.id === categoryId);
+    const data = { name, categoryId, categoryName: catObj ? catObj.name : "", price, moq, createdAt: firebase.firestore.FieldValue.serverTimestamp() };
+    if (uploadedBase64) data.image = uploadedBase64;
+    if (editId) { delete data.createdAt; await db.collection("products").doc(editId).update(data); }
+    else await db.collection("products").add(data);
+    resetProdForm(); await loadProducts(); alert("Product save ho gaya!");
+  } catch (e) { alert("Error: " + e.message); }
+  finally { btn.innerText = "Product Save Karein"; btn.disabled = false; }
+}
 
-    let appSettings = { shopName: "Raza Traders", whatsapp: "", adminPin: "7860" };
-    let categories = [];
-    let products = [];
-    let activeCategory = null;
-    let cart = {};
-    let uploadedBase64 = "";
+async function toggleStock(id, curOos) { await db.collection("products").doc(id).update({ outOfStock: !curOos }); await loadProducts(); }
 
-    // Load initial data
-    async function initApp() {
-      try {
-        const setDoc = await db.collection("settings").doc("config").get();
-        if (setDoc.exists) appSettings = { ...appSettings, ...setDoc.data() };
-        document.getElementById("hdrShopName").innerText = appSettings.shopName;
-        document.getElementById("loginShopTitle").innerText = appSettings.shopName;
-        document.getElementById("setShopName").value = appSettings.shopName;
-        document.getElementById("setWhatsapp").value = appSettings.whatsapp || "";
-        document.getElementById("setAdminPin").value = appSettings.adminPin || "7860";
+function editProduct(id) {
+  const p = products.find(x => x.id === id); if (!p) return;
+  document.getElementById("editProdId").value = p.id; document.getElementById("prodName").value = p.name;
+  document.getElementById("prodCat").value = p.categoryId; document.getElementById("prodPrice").value = p.price;
+  document.getElementById("prodMoq").value = p.moq; uploadedBase64 = p.image || "";
+  if (uploadedBase64) { const pr = document.getElementById("imgPreview"); pr.src = uploadedBase64; pr.classList.remove("hidden"); }
+  document.getElementById("prodFormTitle").innerText = "Product Edit Karein";
+  document.getElementById("cancelEditBtn").classList.remove("hidden");
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
 
-        await loadCategories();
-        await loadProducts();
+function resetProdForm() {
+  ["editProdId","prodName","prodPrice","prodImgFile"].forEach(id => document.getElementById(id).value = "");
+  document.getElementById("prodMoq").value = "12"; document.getElementById("imgPreview").classList.add("hidden");
+  document.getElementById("prodFormTitle").innerText = "Naya Product Daalein";
+  document.getElementById("cancelEditBtn").classList.add("hidden"); uploadedBase64 = "";
+}
 
-        // Auto-login if password is in URL (?pass=GOG123)
-        const urlPass = new URLSearchParams(window.location.search).get("pass");
-        if (urlPass) {
-          document.getElementById("custPassInput").value = urlPass;
-          customerLogin();
-        }
-      } catch (err) {
-        alert("Database connect nahi hua: " + err.message);
-      }
-    }
+async function deleteProduct(id) { if (confirm("Delete karein?")) { await db.collection("products").doc(id).delete(); await loadProducts(); } }
 
-    async function loadCategories() {
-      const snap = await db.collection("categories").orderBy("createdAt", "desc").get();
-      categories = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      renderAdminCategories();
-      populateCategoryDropdowns();
-    }
+function renderAdminProducts() {
+  const f = document.getElementById("adminFilterCat").value;
+  const list = f === "ALL" ? products : products.filter(p => p.categoryId === f);
+  document.getElementById("adminProdList").innerHTML = list.length ? list.map(p => `
+    <div class="list-item">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <img src="${p.image || 'https://via.placeholder.com/60'}" />
+        <div><div style="font-weight:600;font-size:13px;">${p.name} ${p.outOfStock ? '<span class="badge badge-red">OOS</span>' : ''}</div>
+        <div style="font-size:11px;color:#555;">₹${p.price} | Set: ${p.moq} | <span class="badge">${p.categoryName}</span></div></div>
+      </div>
+      <div style="display:flex;gap:4px;">
+        <button class="btn-sm" style="background:${p.outOfStock ? 'var(--s)' : '#f59e0b'};" onclick="toggleStock('${p.id}', ${!!p.outOfStock})">${p.outOfStock ? 'In' : 'Out'}</button>
+        <button class="btn-sm" style="background:var(--p);" onclick="editProduct('${p.id}')">Edit</button>
+        <button class="btn-sm" style="background:var(--d);" onclick="deleteProduct('${p.id}')">X</button>
+      </div>
+    </div>`).join("") : `<p style="color:var(--m);font-size:13px;">Koi product nahi mila.</p>`;
+}
 
-    async function loadProducts() {
-      const snap = await db.collection("products").orderBy("createdAt", "desc").get();
-      products = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      document.getElementById("totalProdCount").innerText = products.length;
-      renderAdminProducts();
-    }
+async function saveCategory() {
+  const name = document.getElementById("catName").value.trim(), password = document.getElementById("catPass").value.trim();
+  if (!name || !password) { alert("Naam aur password dono likhein."); return; }
+  await db.collection("categories").add({ name, password, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+  document.getElementById("catName").value = ""; document.getElementById("catPass").value = "";
+  await loadCategories(); alert("Category save ho gayi!");
+}
 
-    // --- AUTH & NAVIGATION ---
-    function customerLogin() {
-      const pass = document.getElementById("custPassInput").value.trim().toLowerCase();
-      const errEl = document.getElementById("loginErr");
-      if (!pass) { errEl.innerText = "Kripya password daalein."; return; }
+async function editCatPass(id, oldPass) {
+  const np = prompt("Naya Password likhein:", oldPass);
+  if (!np || !np.trim()) return;
+  await db.collection("categories").doc(id).update({ password: np.trim() }); await loadCategories();
+}
 
-      const found = categories.find(c => (c.password || "").trim().toLowerCase() === pass);
-      if (!found) {
-        errEl.innerText = "Galat password! Sahi password ke liye Raza Traders se sampark karein.";
-        return;
-      }
-      errEl.innerText = "";
-      activeCategory = found;
-      cart = {};
-      document.getElementById("hdrSub").innerText = "Category: " + found.name;
-      document.getElementById("loginView").classList.add("hidden");
-      document.getElementById("customerView").classList.remove("hidden");
-      document.getElementById("logoutBtn").classList.remove("hidden");
-      renderCustomerProducts();
-      updateCartBar();
-    }
+async function deleteCategory(id) { if (confirm("Category delete karein?")) { await db.collection("categories").doc(id).delete(); await loadCategories(); } }
 
-    function openAdminPrompt() {
-      const pin = prompt("Admin PIN daalein (Default: 7860):");
-      if (pin === null) return;
-      if (pin.trim() === String(appSettings.adminPin || "7860")) {
-        document.getElementById("hdrSub").innerText = "Admin Panel";
-        document.getElementById("loginView").classList.add("hidden");
-        document.getElementById("adminView").classList.remove("hidden");
-        document.getElementById("logoutBtn").classList.remove("hidden");
-      } else {
-        alert("Galat Admin PIN!");
-      }
-    }
+function copyCategoryLink(name, pass) {
+  const url = window.location.origin + window.location.pathname;
+  navigator.clipboard.writeText(`*${appSettings.shopName} - ${name} Catalog*\nLink: ${url}?pass=${encodeURIComponent(pass)}\nRate Password: ${pass}`).then(() => alert("Link & Password copy ho gaya!"));
+}
 
-    function logout() {
-      activeCategory = null;
-      cart = {};
-      document.getElementById("hdrSub").innerText = "Wholesale Digital Catalog";
-      document.getElementById("customerView").classList.add("hidden");
-      document.getElementById("adminView").classList.add("hidden");
-      document.getElementById("cartBar").classList.add("hidden");
-      document.getElementById("logoutBtn").classList.add("hidden");
-      document.getElementById("loginView").classList.remove("hidden");
-      document.getElementById("custPassInput").value = "";
-    }
+function renderAdminCategories() {
+  document.getElementById("adminCatList").innerHTML = categories.length ? categories.map(c => `
+    <div class="list-item">
+      <div><div style="font-weight:700;font-size:14px;">${c.name}</div><div style="font-size:12px;color:var(--p);">Pass: <strong>${c.password}</strong></div></div>
+      <div style="display:flex;gap:4px;">
+        <button class="btn-sm" style="background:var(--s);" onclick="copyCategoryLink('${c.name}','${c.password}')">Share</button>
+        <button class="btn-sm" style="background:var(--p);" onclick="editCatPass('${c.id}','${c.password}')">Pass</button>
+        <button class="btn-sm" style="background:var(--d);" onclick="deleteCategory('${c.id}')">X</button>
+      </div>
+    </div>`).join("") : `<p style="color:var(--m);font-size:13px;">Pehle category banayein.</p>`;
+}
 
-    // --- CUSTOMER CATALOG ---
-    function renderCustomerProducts() {
-      const q = document.getElementById("searchInput").value.trim().toLowerCase();
-      const list = products.filter(p => p.categoryId === activeCategory.id && p.name.toLowerCase().includes(q));
-      const grid = document.getElementById("custProductGrid");
-      const empty = document.getElementById("custEmptyMsg");
+function populateCategoryDropdowns() {
+  const opts = categories.map(c => `<option value="${c.id}">${c.name}</option>`).join("");
+  document.getElementById("prodCat").innerHTML = opts || `<option value="">Pehle Category Banayein</option>`;
+  document.getElementById("adminFilterCat").innerHTML = `<option value="ALL">Saari Categories</option>` + opts;
+}
 
-      if (list.length === 0) {
-        grid.innerHTML = "";
-        empty.classList.remove("hidden");
-        return;
-      }
-      empty.classList.add("hidden");
+async function toggleBlockCustomer(mob, shouldBlock) {
+  await db.collection("customers").doc(mob).set({ mobile: mob, blocked: shouldBlock }, { merge: true }); await loadAdminRecords();
+}
 
-      grid.innerHTML = list.map(p => {
-        const qty = cart[p.id] || 0;
-        const moq = Number(p.moq) || 1;
-        const imgSrc = p.image || "https://via.placeholder.com/300x300?text=No+Photo";
-        return `
-          <div class="prod-card">
-            <img src="${imgSrc}" class="prod-img" onclick="zoomImage('${imgSrc}')" />
-            <div class="prod-body">
-              <div>
-                <div class="prod-title">${p.name}</div>
-                <div class="prod-price">₹${p.price} <span style="font-size:11px;font-weight:400;color:#666;">/ pc</span></div>
-                <div class="prod-moq">Min Order: ${moq} pcs</div>
-              </div>
-              ${qty === 0
-                ? `<button class="add-btn" onclick="changeQty('${p.id}', ${moq}, ${moq})">+ Add (${moq} pcs)</button>`
-                : `<div class="qty-row">
-                     <button class="qty-btn" onclick="changeQty('${p.id}', ${qty - 1 < moq ? 0 : qty - 1}, ${moq})">-</button>
-                     <span class="qty-val">${qty}</span>
-                     <button class="qty-btn" onclick="changeQty('${p.id}', ${qty + 1}, ${moq})">+</button>
-                   </div>`
-              }
-            </div>
-          </div>
-        `;
-      }).join("");
-    }
+async function deleteCustomer(mob) {
+  if (!confirm(mob + " ko list se delete karein?")) return;
+  await db.collection("customers").doc(mob).delete(); await loadAdminRecords();
+}
 
-    function changeQty(prodId, newQty, moq) {
-      if (newQty <= 0) delete cart[prodId];
-      else cart[prodId] = Math.max(newQty, moq);
-      renderCustomerProducts();
-      updateCartBar();
-    }
+async function manualBlockCustomer() {
+  const mob = document.getElementById("manualBlockNum").value.replace(/\D/g, "");
+  if (mob.length !== 10) { alert("Sahi 10-digit mobile number daalein."); return; }
+  await db.collection("customers").doc(mob).set({ mobile: mob, name: "Blocked Number", blocked: true }, { merge: true });
+  document.getElementById("manualBlockNum").value = ""; await loadAdminRecords(); alert(mob + " block ho gaya!");
+}
 
-    function updateCartBar() {
-      let totalPcs = 0, totalAmt = 0;
-      for (const id in cart) {
-        const p = products.find(x => x.id === id);
-        if (p) {
-          totalPcs += cart[id];
-          totalAmt += cart[id] * Number(p.price);
-        }
-      }
-      const bar = document.getElementById("cartBar");
-      if (totalPcs > 0) {
-        document.getElementById("cartPcs").innerText = totalPcs;
-        document.getElementById("cartTotal").innerText = totalAmt;
-        bar.classList.remove("hidden");
-      } else {
-        bar.classList.add("hidden");
-      }
-    }
+function renderAdminCustomers() {
+  const el = document.getElementById("adminCustList");
+  el.innerHTML = customers.length ? customers.map(c => `
+    <div class="list-item">
+      <div><div style="font-weight:700;font-size:13px;">${c.mobile} ${c.blocked ? '<span class="badge badge-red">BLOCKED</span>' : ''}</div>
+      <div style="font-size:11px;color:#555;">${c.name || 'Customer'}</div></div>
+      <div style="display:flex;gap:4px;">
+        <button class="btn-sm" style="background:${c.blocked ? 'var(--s)' : 'var(--d)'};" onclick="toggleBlockCustomer('${c.mobile}', ${!c.blocked})">${c.blocked ? 'Unblock' : 'Block'}</button>
+        <button class="btn-sm" style="background:#6b7280;" onclick="deleteCustomer('${c.mobile}')">Del</button>
+      </div>
+    </div>`).join("") : `<p style="color:var(--m);font-size:12px;">Abhi koi customer nahi hai.</p>`;
+}
 
-    function openCartModal() {
-      let html = "", totalPcs = 0, totalAmt = 0;
-      for (const id in cart) {
-        const p = products.find(x => x.id === id);
-        if (p) {
-          const sub = cart[id] * Number(p.price);
-          totalPcs += cart[id];
-          totalAmt += sub;
-          html += `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f3f4f6;">
-            <span>${p.name} (${cart[id]} pcs x ₹${p.price})</span>
-            <strong>₹${sub}</strong>
-          </div>`;
-             }
-      }
-      document.getElementById("cartItemsList").innerHTML = html;
-      document.getElementById("modalTotal").innerText = totalAmt;
-      document.getElementById("modalPcs").innerText = totalPcs;
-      document.getElementById("cartModal").classList.remove("hidden");
-    }
+async function deleteOrder(id) { if (confirm("Order record delete karein?")) { await db.collection("orders").doc(id).delete(); await loadAdminRecords(); } }
 
-    function closeCartModal() {
-      document.getElementById("cartModal").classList.add("hidden");
-    }
-
-    function sendWhatsAppOrder() {
-      if (!appSettings.whatsapp) {
-        alert("Admin ne abhi WhatsApp number set nahi kiya hai.");
-        return;
-      }
-      const cName = document.getElementById("custName").value.trim() || "Customer";
-      const cCity = document.getElementById("custCity").value.trim() || "-";
-      let msg = `*Naya Wholesale Order - ${appSettings.shopName}*\n`;
-      msg += `*Customer:* ${cName}\n*City:* ${cCity}\n*Category:* ${activeCategory.name}\n-------------------\n`;
-      let idx = 1, totalPcs = 0, totalAmt = 0;
-      for (const id in cart) {
-        const p = products.find(x => x.id === id);
-        if (p) {
-          const sub = cart[id] * Number(p.price);
-          totalPcs += cart[id];
-          totalAmt += sub;
-          msg += `${idx}. ${p.name}\n   Qty: ${cart[id]} pcs x ₹${p.price} = ₹${sub}\n`;
-          idx++;
-        }
-      }
-      msg += `-------------------\n*Total Pieces:* ${totalPcs}\n*Total Bill:* ₹${totalAmt}`;
-      const num = appSettings.whatsapp.replace(/\D/g, "");
-      const waNum = num.length === 10 ? "91" + num : num;
-      window.open(`https://wa.me/${waNum}?text=${encodeURIComponent(msg)}`, "_blank");
-    }
-
-    function zoomImage(src) {
-      document.getElementById("zoomImg").src = src;
-      document.getElementById("zoomModal").classList.remove("hidden");
-    }
-
-    // --- ADMIN FUNCTIONS ---
-    function switchTab(tab) {
-      ["prod", "cat", "set"].forEach(t => {
-        document.getElementById("admin" + t.charAt(0).toUpperCase() + t.slice(1) + "Tab").classList.toggle("hidden", t !== tab);
-        document.getElementById("tab" + t.charAt(0).toUpperCase() + t.slice(1) + "Btn").classList.toggle("active", t === tab);
-      });
-    }
-
-    function handleImageUpload(e) {
-      const file = e.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = function(ev) {
-        const img = new Image();
-        img.onload = function() {
-          const canvas = document.createElement("canvas");
-          const maxW = 500;
-          const scale = Math.min(1, maxW / img.width);
-          canvas.width = img.width * scale;
-          canvas.height = img.height * scale;
-          canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
-          uploadedBase64 = canvas.toDataURL("image/jpeg", 0.65);
-          const prev = document.getElementById("imgPreview");
-          prev.src = uploadedBase64;
-          prev.classList.remove("hidden");
-        };
-        img.src = ev.target.result;
-      };
-      reader.readAsDataURL(file);
-    }
-
-    async function saveProduct() {
-      const name = document.getElementById("prodName").value.trim();
-      const categoryId = document.getElementById("prodCat").value;
-      const price = Number(document.getElementById("prodPrice").value);
-      const moq = Number(document.getElementById("prodMoq").value) || 1;
-      const editId = document.getElementById("editProdId").value;
-
-      if (!name || !categoryId || !price) {
-        alert("Naam, Category aur Rate zaroori hai! (Pehle Categories tab mein category banayein)");
-        return;
-      }
-
-      const btn = document.getElementById("saveProdBtn");
-      btn.innerText = "Saving...";
-      btn.disabled = true;
-
-      try {
-        const catObj = categories.find(c => c.id === categoryId);
-        const data = {
-          name, categoryId, categoryName: catObj ? catObj.name : "",
-          price, moq, createdAt: firebase.firestore.FieldValue.serverTimestamp()
-        };
-        if (uploadedBase64) data.image = uploadedBase64;
-
-        if (editId) {
-          delete data.createdAt;
-          await db.collection("products").doc(editId).update(data);
-        } else {
-          await db.collection("products").add(data);
-        }
-        resetProdForm();
-        await loadProducts();
-        alert("Product save ho gaya!");
-      } catch (err) {
-        alert("Error: " + err.message);
-      } finally {
-        btn.innerText = "Product Save Karein";
-        btn.disabled = false;
-      }
-    }
-
-    function editProduct(id) {
-      const p = products.find(x => x.id === id);
-      if (!p) return;
-      document.getElementById("editProdId").value = p.id;
-      document.getElementById("prodName").value = p.name;
-      document.getElementById("prodCat").value = p.categoryId;
-      document.getElementById("prodPrice").value = p.price;
-      document.getElementById("prodMoq").value = p.moq;
-      uploadedBase64 = p.image || "";
-      if (uploadedBase64) {
-        const prev = document.getElementById("imgPreview");
-        prev.src = uploadedBase64;
-        prev.classList.remove("hidden");
-      }
-      document.getElementById("prodFormTitle").innerText = "Product Edit Karein";
-      document.getElementById("cancelEditBtn").classList.remove("hidden");
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    }
-
-    function resetProdForm() {
-      document.getElementById("editProdId").value = "";
-      document.getElementById("prodName").value = "";
-      document.getElementById("prodPrice").value = "";
-      document.getElementById("prodMoq").value = "6";
-      document.getElementById("prodImgFile").value = "";
-      document.getElementById("imgPreview").classList.add("hidden");
-      document.getElementById("prodFormTitle").innerText = "Naya Product Daalein";
-      document.getElementById("cancelEditBtn").classList.add("hidden");
-      uploadedBase64 = "";
-    }
-
-    async function deleteProduct(id) {
-      if (!confirm("Kya is product ko delete karna hai?")) return;
-      await db.collection("products").doc(id).delete();
-      await loadProducts();
-    }
-
-    function renderAdminProducts() {
-      const filter = document.getElementById("adminFilterCat").value;
-      const list = filter === "ALL" ? products : products.filter(p => p.categoryId === filter);
-      const el = document.getElementById("adminProdList");
-      if (list.length === 0) {
-        el.innerHTML = `<p style="color:var(--muted);font-size:14px;">Koi product nahi mila.</p>`;
-        return;
-      }
-      el.innerHTML = list.map(p => `
-        <div class="list-item">
-          <div style="display:flex;align-items:center;gap:10px;">
-            <img src="${p.image || 'https://via.placeholder.com/60'}" />
-            <div>
-              <div style="font-weight:600;font-size:14px;">${p.name}</div>
-              <div style="font-size:12px;color:#555;">₹${p.price} | MOQ: ${p.moq} | <span class="badge">${p.categoryName}</span></div>
-            </div>
-          </div>
-          <div style="display:flex;gap:6px;">
-            <button class="btn-sm" style="background:var(--primary);" onclick="editProduct('${p.id}')">Edit</button>
-            <button class="btn-sm" style="background:var(--danger);" onclick="deleteProduct('${p.id}')">Del</button>
-          </div>
+function renderAdminOrders() {
+  const el = document.getElementById("adminOrdList");
+  el.innerHTML = orders.length ? orders.map((o, idx) => {
+    const dt = o.createdAt && o.createdAt.toDate ? o.createdAt.toDate().toLocaleString("en-IN") : "";
+    const itemsTxt = (o.items || []).map(i => `${i.name} (${i.qty} x ₹${i.price})`).join(", ");
+    return `<div class="ord-card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+        <strong>Consignee: ${o.customerName} (${o.mobile})</strong>
+        <div style="display:flex;gap:4px;">
+          <button class="btn-sm" style="background:var(--p);padding:3px 7px;" onclick="generateEstimatePDF(orders[${idx}])">PDF</button>
+          <button class="btn-sm" style="background:var(--d);padding:3px 7px;" onclick="deleteOrder('${o.id}')">X</button>
         </div>
-      `).join("");
-    }
+      </div>
+      <div style="color:#666;font-size:11px;margin-bottom:4px;">${dt}</div>
+      <div style="margin-bottom:4px;">${itemsTxt}</div>
+      <div style="font-weight:700;color:var(--p);">Total: ₹${o.totalAmt} (${o.totalPcs} pcs)</div>
+    </div>`;
+  }).join("") : `<p style="color:var(--m);font-size:12px;">Abhi koi order nahi aaya hai.</p>`;
+}
 
-    async function saveCategory() {
-      const name = document.getElementById("catName").value.trim();
-      const password = document.getElementById("catPass").value.trim();
-      if (!name || !password) { alert("Category naam aur password dono likhein."); return; }
-      await db.collection("categories").add({
-        name, password, createdAt: firebase.firestore.FieldValue.serverTimestamp()
-      });
-      document.getElementById("catName").value = "";
-      document.getElementById("catPass").value = "";
-      await loadCategories();
-      alert("Category save ho gayi!");
-    }
+async function saveSettings() {
+  const shopName = document.getElementById("setShopName").value.trim() || "Raza Traders";
+  const whatsapp = document.getElementById("setWhatsapp").value.trim();
+  const adminPin = document.getElementById("setAdminPin").value.trim() || "7860";
+  const catalogOn = document.getElementById("ctrlCatalogOn").checked;
+  const strictSet = document.getElementById("ctrlStrictSet").checked;
+  await db.collection("settings").doc("config").set({ shopName, whatsapp, adminPin, catalogOn, strictSet }, { merge: true });
+  appSettings = { shopName, whatsapp, adminPin, catalogOn, strictSet };
+  document.getElementById("hdrShopName").innerText = shopName;
+  alert("Settings aur Controls save ho gaye!");
+}
 
-    async function deleteCategory(id) {
-      if (!confirm("Is category ko delete karein?")) return;
-      await db.collection("categories").doc(id).delete();
-      await loadCategories();
-    }
-
-    function copyCategoryLink(name, pass) {
-      const baseUrl = window.location.origin + window.location.pathname;
-      const shareText = `*${appSettings.shopName} - ${name} Wholesale Catalog*\nLink: ${baseUrl}?pass=${encodeURIComponent(pass)}\nPassword: ${pass}`;
-      navigator.clipboard.writeText(shareText).then(() => alert("Link aur Password copy ho gaya! Ab WhatsApp par paste kar dein."));
-    }
-
-    function renderAdminCategories() {
-      const el = document.getElementById("adminCatList");
-      if (categories.length === 0) {
-        el.innerHTML = `<p style="color:var(--muted);font-size:14px;">Pehle upar se ek category banayein.</p>`;
-        return;
-      }
-      el.innerHTML = categories.map(c => `
-        <div class="list-item">
-          <div>
-            <div style="font-weight:700;">${c.name}</div>
-            <div style="font-size:13px;color:var(--primary);">Password: <strong>${c.password}</strong></div>
-          </div>
-          <div style="display:flex;gap:6px;">
-            <button class="btn-sm" style="background:var(--success);" onclick="copyCategoryLink('${c.name}','${c.password}')">Share</button>
-            <button class="btn-sm" style="background:var(--danger);" onclick="deleteCategory('${c.id}')">Del</button>
-          </div>
-        </div>
-      `).join("");
-    }
-
-    function populateCategoryDropdowns() {
-      const opts = categories.map(c => `<option value="${c.id}">${c.name}</option>`).join("");
-      document.getElementById("prodCat").innerHTML = opts || `<option value="">Pehle Category Banayein</option>`;
-      document.getElementById("adminFilterCat").innerHTML = `<option value="ALL">Saari Categories</option>` + opts;
-    }
-
-    async function saveSettings() {
-      const shopName = document.getElementById("setShopName").value.trim() || "Raza Traders";
-      const whatsapp = document.getElementById("setWhatsapp").value.trim();
-      const adminPin = document.getElementById("setAdminPin").value.trim() || "7860";
-      await db.collection("settings").doc("config").set({ shopName, whatsapp, adminPin }, { merge: true });
-      appSettings = { shopName, whatsapp, adminPin };
-      document.getElementById("hdrShopName").innerText = shopName;
-      alert("Settings save ho gayi!");
-    }
-
-    initApp();
-  </script>
+initApp();
+</script>
 </body>
 </html>
-
