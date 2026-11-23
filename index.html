@@ -45,14 +45,20 @@ label{display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#3741
 .search-filter-row input{margin:0;flex:1}
 .filter-btn{padding:0 13px;border-radius:8px;border:1px solid var(--p);background:#fff;color:var(--p);font-size:13px;font-weight:700;white-space:nowrap;cursor:pointer}
 .filter-btn.active{background:var(--p);color:#fff}
-.filter-opt{width:100%;text-align:left;padding:11px 12px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;font-size:14px;font-weight:600;margin-bottom:7px;cursor:pointer;display:flex;justify-content:space-between;align-items:center}
-.filter-opt.active{background:#eff6ff;border-color:var(--p);color:var(--p)}
+.f-sec{margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid #e5e7eb}
+.f-sec-title{font-size:12px;font-weight:700;color:#374151;margin-bottom:7px;text-transform:uppercase;letter-spacing:.3px}
+.f-chips{display:flex;flex-wrap:wrap;gap:6px}
+.f-chip{padding:7px 12px;border-radius:8px;border:1px solid #d1d5db;background:#f9fafb;color:#374151;font-size:13px;font-weight:600;cursor:pointer}
+.f-chip.active{background:var(--p);border-color:var(--p);color:#fff}
+.fg-tag{display:inline-flex;align-items:center;gap:6px;background:#eff6ff;border:1px solid #93c5fd;color:#1e3a8a;padding:4px 9px;border-radius:999px;font-size:12px;font-weight:700}
+.fg-tag button{background:none;border:none;color:#dc2626;font-weight:700;font-size:14px;cursor:pointer;line-height:1}
 .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
 .prod-card{background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.08);display:flex;flex-direction:column}
 .prod-img{width:100%;height:145px;object-fit:cover;background:#e5e7eb;cursor:pointer}
 .prod-body{padding:9px;flex:1;display:flex;flex-direction:column;justify-content:space-between}
 .prod-title{font-size:13px;font-weight:600;margin-bottom:2px}
-.prod-subtag{display:inline-block;font-size:10px;background:#e0e7ff;color:#3730a3;padding:1px 5px;border-radius:4px;font-weight:600;margin-bottom:3px}
+.prod-subtags{display:flex;flex-wrap:wrap;gap:3px;margin-bottom:3px}
+.prod-subtag{display:inline-block;font-size:10px;background:#e0e7ff;color:#3730a3;padding:1px 5px;border-radius:4px;font-weight:600}
 .prod-desc{font-size:11px;color:#6b7280;margin-bottom:4px;line-height:1.3}
 .prod-price{font-size:15px;font-weight:700;color:var(--p)}
 .rate-locked{font-size:12px;font-weight:600;color:#b45309;background:#fef3c7;padding:5px;border-radius:6px;text-align:center;margin-top:4px;cursor:pointer}
@@ -170,10 +176,9 @@ label{display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#3741
         </div>
       </div>
       <img id="imgPreview" class="preview-thumb hidden" />
-      <div style="display:flex;gap:10px;">
-        <div style="flex:1;"><label>Category</label><select id="prodCat" onchange="onProdCatChange()"></select></div>
-        <div style="flex:1;"><label id="prodSubCatLabel">Sub-Category (Filter)</label><select id="prodSubCat"><option value="">None</option></select></div>
-      </div>
+      <label>Category</label>
+      <select id="prodCat" onchange="onProdCatChange()"></select>
+      <div id="prodDynamicFilters" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;"></div>
       <label>Model / Item Name</label>
       <input type="text" id="prodName" placeholder="Ex: Goggle Model 101" />
       <div style="display:flex;gap:10px;">
@@ -196,7 +201,7 @@ label{display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#3741
     </div>
   </div>
 
-  <!-- TAB: CATEGORIES & CUSTOM FILTER SETTINGS -->
+  <!-- TAB: CATEGORIES & MULTI-FILTER SETTINGS -->
   <div id="adminCatTab" class="hidden">
     <div class="card">
       <h3 style="margin-bottom:10px;">Add Category &amp; Rate Password</h3>
@@ -208,16 +213,22 @@ label{display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#3741
     <div class="card">
       <h3 style="margin-bottom:10px;">Category Filter Settings</h3>
       <label>Select Category</label>
-      <select id="filterConfigCat" onchange="renderAdminSubCategories()"></select>
-      <label>Filter Heading Name (Sub-Category ki jagah kya dikhe)</label>
-      <div style="display:flex;gap:6px;margin-bottom:10px;">
-        <input type="text" id="catFilterLabelInp" placeholder="Ex: Gender, Model, Type, Material" style="margin:0;flex:1;" />
-        <button class="btn-sm" style="background:var(--p);white-space:nowrap;padding:0 12px;" onclick="saveCatFilterLabel()">Save Name</button>
+      <select id="filterConfigCat" onchange="renderAdminFilterConfig()"></select>
+
+      <label>1. Create Filter Type (Ex: Gender, Lens Type, Frame Type, Material)</label>
+      <div style="display:flex;gap:6px;margin-bottom:8px;">
+        <input type="text" id="newFilterGroupInp" placeholder="Ex: Gender, Lens Type, Frame Type" style="margin:0;flex:1;" />
+        <button class="btn-sm" style="background:var(--p);white-space:nowrap;padding:0 12px;" onclick="addFilterGroup()">+ Create</button>
       </div>
-      <label>Add Filter Option (Is Category ke liye)</label>
-      <div style="display:flex;gap:6px;">
-        <input type="text" id="subCatName" placeholder="Ex: Ladies, Kids, Gents" style="margin:0;flex:1;" />
-        <button class="btn-sm" style="background:var(--s);white-space:nowrap;padding:0 12px;" onclick="saveSubCategory()">+ Add</button>
+      <div id="adminFilterGroupsChips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;"></div>
+
+      <div id="filterOptionAddSection" class="hidden">
+        <label>2. Select Filter Type &amp; Add Options</label>
+        <select id="filterConfigGroup" style="margin-bottom:8px;"></select>
+        <div style="display:flex;gap:6px;">
+          <input type="text" id="subCatName" placeholder="Ex: Women, Man, Kids" style="margin:0;flex:1;" />
+          <button class="btn-sm" style="background:var(--s);white-space:nowrap;padding:0 12px;" onclick="saveSubCategory()">+ Add</button>
+        </div>
       </div>
       <div id="adminSubCatList" style="margin-top:12px;"></div>
     </div>
@@ -295,9 +306,12 @@ label{display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#3741
 <!-- CUSTOMER FILTER MODAL -->
 <div id="filterModal" class="modal-bg hidden" onclick="if(event.target===this)this.classList.add('hidden')">
   <div class="modal">
-    <h3 id="filterModalTitle" style="margin-bottom:10px;">Filter Items</h3>
+    <h3 style="margin-bottom:10px;">Filter Items</h3>
     <div id="filterOptionsList"></div>
-    <button class="btn btn-o" style="margin-top:6px;" onclick="document.getElementById('filterModal').classList.add('hidden')">Close</button>
+    <div style="display:flex;gap:8px;margin-top:8px;">
+      <button class="btn btn-o" onclick="clearAllCustomerFilters()">Clear All</button>
+      <button class="btn" onclick="document.getElementById('filterModal').classList.add('hidden')">Show Items</button>
+    </div>
   </div>
 </div>
 
@@ -394,6 +408,10 @@ function showToast(msg) {
   toastTimer = setTimeout(() => el.classList.add("hidden"), 1500);
 }
 
+function escHtml(s) {
+  return String(s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+}
+
 async function installPWA() {
   if (deferredPrompt) {
     deferredPrompt.prompt();
@@ -418,7 +436,7 @@ const db = firebase.firestore();
 
 let appSettings = { shopName: "Raza Traders", whatsapp: "", adminPin: "7860", catalogOn: true, strictSet: true, logo: "", adBanner: "" };
 let categories = [], subCategories = [], products = [], orders = [], customers = [], vouchers = [];
-let unlockedCatIds = new Set(), activeCategory = null, activeSubCat = "", activeMobile = "", activeCustName = "", authMode = "login", cart = {};
+let unlockedCatIds = new Set(), activeCategory = null, activeFilters = {}, activeMobile = "", activeCustName = "", authMode = "login", cart = {};
 let appliedVoucher = null, editingOrderIdx = -1;
 let upProdImg = "", upLogoImg = "", upAdImg = "";
 let photoQueue = [], queueIdx = 0;
@@ -486,14 +504,19 @@ function setAuthMode(mode) {
 
 async function loadCategories() {
   const snap = await db.collection("categories").orderBy("createdAt", "desc").get();
-  categories = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  categories = snap.docs.map(d => {
+    const data = d.data();
+    let groups = Array.isArray(data.filterGroups) ? [...data.filterGroups] : [];
+    if (data.filterLabel && !groups.includes(data.filterLabel)) groups.unshift(data.filterLabel);
+    return { id: d.id, ...data, filterGroups: groups };
+  });
   renderAdminCategories(); populateCategoryDropdowns();
 }
 
 async function loadSubCategories() {
   const snap = await db.collection("subcategories").orderBy("createdAt", "asc").get();
   subCategories = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-  renderAdminSubCategories(); populateSubCatDropdown();
+  renderAdminFilterConfig(); renderProdFilterInputs(getCurrentProdFilters());
 }
 
 function sortProductsList() {
@@ -581,7 +604,7 @@ async function loginCustomerByMobile(mob, isAuto) {
   }
 
   activeMobile = mob;
-  activeSubCat = "";
+  activeFilters = {};
   cart = {};
   appliedVoucher = null;
   restoreUnlockedCategories(mob);
@@ -640,7 +663,7 @@ function renderCatPills() {
 
 function selectActiveCat(id) {
   activeCategory = categories.find(c => c.id === id);
-  activeSubCat = "";
+  activeFilters = {};
   updateFilterBtnUI();
   renderCatPills();
   renderCustomerProducts();
@@ -657,36 +680,81 @@ function unlockCurrentCat() {
   } else alert("Incorrect Password!");
 }
 
-// --- CUSTOMER FILTER MODAL ---
+// --- CUSTOMER MULTI-GROUP FILTER MODAL ---
+function getCatFilterGroups(cat) {
+  if (!cat) return [];
+  const groups = [...(cat.filterGroups || [])];
+  const catSubs = subCategories.filter(s => s.categoryId === cat.id);
+  catSubs.forEach(s => {
+    const g = s.groupName || (groups[0] || "Filter");
+    if (!groups.includes(g)) groups.push(g);
+  });
+  return groups;
+}
+
 function openFilterModal() {
-  const lbl = (activeCategory && activeCategory.filterLabel) ? activeCategory.filterLabel : "Filter Items";
-  document.getElementById("filterModalTitle").innerText = lbl;
-  const listEl = document.getElementById("filterOptionsList");
-  const catSubList = subCategories.filter(s => activeCategory && (s.categoryId === activeCategory.id || !s.categoryId));
-  const allBtn = `<button class="filter-opt ${!activeSubCat ? 'active' : ''}" onclick="selectCustomerFilter('')"><span>All Items</span><span>${!activeSubCat ? '✓' : ''}</span></button>`;
-  const subBtns = catSubList.map(s => {
-    const isAct = activeSubCat.toLowerCase() === s.name.toLowerCase();
-    return `<button class="filter-opt ${isAct ? 'active' : ''}" onclick="selectCustomerFilter('${s.name.replace(/'/g, "\\'")}')"><span>${s.name}</span><span>${isAct ? '✓' : ''}</span></button>`;
-  }).join("");
-  listEl.innerHTML = allBtn + (subBtns || `<p style="font-size:12px;color:var(--m);margin:8px 0;">No filter options added for this category.</p>`);
+  renderCustomerFilterModal();
   document.getElementById("filterModal").classList.remove("hidden");
 }
 
-function selectCustomerFilter(subName) {
-  activeSubCat = subName;
+function renderCustomerFilterModal() {
+  const listEl = document.getElementById("filterOptionsList");
+  if (!activeCategory) { listEl.innerHTML = ""; return; }
+  const groups = getCatFilterGroups(activeCategory);
+  const catSubs = subCategories.filter(s => s.categoryId === activeCategory.id);
+
+  if (!groups.length || !catSubs.length) {
+    listEl.innerHTML = `<p style="font-size:13px;color:var(--m);margin:10px 0;">No filters set for this category yet.</p>`;
+    return;
+  }
+
+  let html = "";
+  groups.forEach(gName => {
+    const opts = catSubs.filter(s => (s.groupName || groups[0]) === gName);
+    if (!opts.length) return;
+    const curVal = activeFilters[gName] || "";
+    html += `<div class="f-sec">
+      <div class="f-sec-title">${escHtml(gName)}</div>
+      <div class="f-chips">
+        <button type="button" class="f-chip ${!curVal ? 'active' : ''}" data-grp="${escHtml(gName)}" data-val="" onclick="pickCustFilter(this)">All</button>
+        ${opts.map(o => {
+          const isAct = curVal.toLowerCase() === o.name.toLowerCase();
+          return `<button type="button" class="f-chip ${isAct ? 'active' : ''}" data-grp="${escHtml(gName)}" data-val="${escHtml(o.name)}" onclick="pickCustFilter(this)">${escHtml(o.name)}</button>`;
+        }).join("")}
+      </div>
+    </div>`;
+  });
+  listEl.innerHTML = html;
+}
+
+function pickCustFilter(btn) {
+  const grp = btn.getAttribute("data-grp");
+  const val = btn.getAttribute("data-val");
+  if (!val || (activeFilters[grp] && activeFilters[grp].toLowerCase() === val.toLowerCase())) {
+    delete activeFilters[grp];
+  } else {
+    activeFilters[grp] = val;
+  }
   updateFilterBtnUI();
-  document.getElementById("filterModal").classList.add("hidden");
+  renderCustomerFilterModal();
+  renderCustomerProducts();
+}
+
+function clearAllCustomerFilters() {
+  activeFilters = {};
+  updateFilterBtnUI();
+  renderCustomerFilterModal();
   renderCustomerProducts();
 }
 
 function updateFilterBtnUI() {
   const btn = document.getElementById("custFilterBtn");
-  const baseLbl = (activeCategory && activeCategory.filterLabel) ? activeCategory.filterLabel : "Filter";
-  if (activeSubCat) {
-    btn.innerText = baseLbl + ": " + activeSubCat;
+  const count = Object.keys(activeFilters).filter(k => activeFilters[k]).length;
+  if (count > 0) {
+    btn.innerText = `Filter (${count})`;
     btn.classList.add("active");
   } else {
-    btn.innerText = baseLbl;
+    btn.innerText = "Filter";
     btn.classList.remove("active");
   }
 }
@@ -706,10 +774,21 @@ function openAdminPrompt() {
 
 function logout() {
   localStorage.removeItem("rt_app_mobile");
-  unlockedCatIds = new Set(); activeCategory = null; activeSubCat = ""; activeMobile = ""; cart = {}; appliedVoucher = null;
+  unlockedCatIds = new Set(); activeCategory = null; activeFilters = {}; activeMobile = ""; cart = {}; appliedVoucher = null;
   document.getElementById("hdrSub").innerText = "Wholesale Digital Catalog";
   ["appSplash","customerView","adminView","cartBar","logoutBtn"].forEach(id => document.getElementById(id).classList.add("hidden"));
   document.getElementById("loginView").classList.remove("hidden");
+}
+
+function getProductFilterValues(p) {
+  let vals = [];
+  if (p.filters && typeof p.filters === "object") {
+    vals = Object.values(p.filters).filter(Boolean);
+  }
+  if (!vals.length && p.subCategory) {
+    vals = [p.subCategory];
+  }
+  return vals;
 }
 
 function renderCustomerProducts() {
@@ -717,12 +796,21 @@ function renderCustomerProducts() {
   const isUnlocked = unlockedCatIds.has(activeCategory.id);
   document.getElementById("lockBanner").classList.toggle("hidden", isUnlocked);
   const q = document.getElementById("searchInput").value.trim().toLowerCase();
+  const filterEntries = Object.entries(activeFilters).filter(([_, v]) => v);
+
   const list = products.filter(p => {
     if (p.categoryId !== activeCategory.id) return false;
-    if (activeSubCat && (p.subCategory || "").toLowerCase() !== activeSubCat.toLowerCase()) return false;
-    if (q && !(p.name.toLowerCase().includes(q) || (p.description || "").toLowerCase().includes(q) || (p.subCategory || "").toLowerCase().includes(q))) return false;
+    for (const [grp, reqVal] of filterEntries) {
+      const pVal = (p.filters && p.filters[grp]) ? p.filters[grp] : (p.subCategory || "");
+      if (pVal.toLowerCase() !== reqVal.toLowerCase()) return false;
+    }
+    if (q) {
+      const fStr = getProductFilterValues(p).join(" ").toLowerCase();
+      if (!(p.name.toLowerCase().includes(q) || (p.description || "").toLowerCase().includes(q) || fStr.includes(q))) return false;
+    }
     return true;
   });
+
   const grid = document.getElementById("custProductGrid"), empty = document.getElementById("custEmptyMsg");
   if (!list.length) { grid.innerHTML = ""; empty.classList.remove("hidden"); return; }
   empty.classList.add("hidden");
@@ -730,11 +818,12 @@ function renderCustomerProducts() {
   grid.innerHTML = list.map(p => {
     const qty = cart[p.id] || 0, moq = Number(p.moq) || 1, step = stepStrict ? moq : 1;
     const imgSrc = p.image || "https://via.placeholder.com/300x300?text=No+Photo";
-    const subTagHtml = p.subCategory ? `<div class="prod-subtag">${p.subCategory}</div>` : "";
-    const descHtml = p.description ? `<div class="prod-desc">${p.description}</div>` : "";
-    if (!isUnlocked) return `<div class="prod-card"><img src="${imgSrc}" class="prod-img" onclick="zoomImage('${imgSrc}')" /><div class="prod-body"><div><div class="prod-title">${p.name}</div>${subTagHtml}${descHtml}</div><div class="rate-locked" onclick="unlockCurrentCat()">🔒 Rate Locked<br><small>Tap to unlock</small></div></div></div>`;
+    const fVals = getProductFilterValues(p);
+    const subTagHtml = fVals.length ? `<div class="prod-subtags">${fVals.map(v => `<span class="prod-subtag">${escHtml(v)}</span>`).join("")}</div>` : "";
+    const descHtml = p.description ? `<div class="prod-desc">${escHtml(p.description)}</div>` : "";
+    if (!isUnlocked) return `<div class="prod-card"><img src="${imgSrc}" class="prod-img" onclick="zoomImage('${imgSrc}')" /><div class="prod-body"><div><div class="prod-title">${escHtml(p.name)}</div>${subTagHtml}${descHtml}</div><div class="rate-locked" onclick="unlockCurrentCat()">🔒 Rate Locked<br><small>Tap to unlock</small></div></div></div>`;
     return `<div class="prod-card"><img src="${imgSrc}" class="prod-img" onclick="zoomImage('${imgSrc}')" /><div class="prod-body">
-      <div><div class="prod-title">${p.name}</div>${subTagHtml}${descHtml}<div class="prod-price">₹${p.price} <span style="font-size:11px;font-weight:400;color:#666;">/ pc</span></div>
+      <div><div class="prod-title">${escHtml(p.name)}</div>${subTagHtml}${descHtml}<div class="prod-price">₹${p.price} <span style="font-size:11px;font-weight:400;color:#666;">/ pc</span></div>
       <div class="prod-moq">${stepStrict ? '1 Set = ' : 'Min: '}${moq} pcs</div></div>
       ${p.outOfStock ? `<button class="oos-btn" disabled>Out of Stock</button>` :
         (qty === 0 ? `<button class="add-btn" onclick="stepQty('${p.id}', ${moq}, ${moq})">+ Add (${moq} pcs)</button>`
@@ -1053,10 +1142,20 @@ function getNextTopOrder() {
   return Math.max(Date.now(), maxOrd) + 100;
 }
 
+function getCurrentProdFilters() {
+  const filters = {};
+  document.querySelectorAll(".prod-dyn-filter").forEach(sel => {
+    const grp = sel.getAttribute("data-group");
+    if (grp && sel.value) filters[grp] = sel.value;
+  });
+  return filters;
+}
+
 async function saveProduct() {
   const name = document.getElementById("prodName").value.trim(), description = document.getElementById("prodDesc").value.trim();
   const categoryId = document.getElementById("prodCat").value;
-  const subCategory = document.getElementById("prodSubCat").value;
+  const filters = getCurrentProdFilters();
+  const subCategory = Object.values(filters).join(", ");
   const buyRate = Number(document.getElementById("prodBuyRate").value) || 0;
   const marginPct = Number(document.getElementById("prodMargin").value) || 0;
   const price = Number(document.getElementById("prodPrice").value);
@@ -1066,7 +1165,7 @@ async function saveProduct() {
   const btn = document.getElementById("saveProdBtn"); btn.innerText = "Saving..."; btn.disabled = true;
   try {
     const catObj = categories.find(c => c.id === categoryId);
-    const data = { name, description, categoryId, categoryName: catObj ? catObj.name : "", subCategory, buyRate, marginPct, price, moq };
+    const data = { name, description, categoryId, categoryName: catObj ? catObj.name : "", filters, subCategory, buyRate, marginPct, price, moq };
     if (upProdImg) data.image = upProdImg;
     if (editId) {
       await db.collection("products").doc(editId).update(data);
@@ -1157,8 +1256,13 @@ function editProduct(id) {
   document.getElementById("prodName").value = p.name;
   document.getElementById("prodDesc").value = p.description || "";
   document.getElementById("prodCat").value = p.categoryId;
-  onProdCatChange();
-  document.getElementById("prodSubCat").value = p.subCategory || "";
+  const existingFilters = (p.filters && typeof p.filters === "object") ? { ...p.filters } : {};
+  if (!Object.keys(existingFilters).length && p.subCategory) {
+    const cat = categories.find(c => c.id === p.categoryId);
+    const firstGrp = (cat && cat.filterGroups && cat.filterGroups[0]) ? cat.filterGroups[0] : "";
+    if (firstGrp) existingFilters[firstGrp] = p.subCategory;
+  }
+  renderProdFilterInputs(existingFilters);
   document.getElementById("prodBuyRate").value = p.buyRate || "";
   document.getElementById("prodMargin").value = p.marginPct !== undefined ? p.marginPct : 30;
   document.getElementById("prodPrice").value = p.price;
@@ -1170,14 +1274,15 @@ function editProduct(id) {
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
-function resetProdForm(clearImg) {
+function resetProdForm(clearAll) {
   ["editProdId","prodName","prodDesc","prodBuyRate","prodPrice"].forEach(id => document.getElementById(id).value = "");
   document.getElementById("prodMargin").value = "30";
   document.getElementById("prodMoq").value = "6";
   document.getElementById("prodFormTitle").innerText = "Add New Product";
   document.getElementById("cancelEditBtn").classList.add("hidden");
-  if (clearImg) {
+  if (clearAll) {
     clearPhotoQueue();
+    document.querySelectorAll(".prod-dyn-filter").forEach(sel => sel.value = "");
   }
 }
 
@@ -1194,14 +1299,17 @@ async function deleteProduct(id) {
 function renderAdminProducts() {
   const f = document.getElementById("adminFilterCat").value;
   const list = f === "ALL" ? products : products.filter(p => p.categoryId === f);
-  document.getElementById("adminProdList").innerHTML = list.length ? list.map((p, idx) => `
+  document.getElementById("adminProdList").innerHTML = list.length ? list.map((p, idx) => {
+    const fVals = getProductFilterValues(p);
+    const fBadges = fVals.map(v => `<span class="badge badge-pur">${escHtml(v)}</span>`).join(" ");
+    return `
     <div class="list-item" style="flex-direction:column;align-items:stretch;gap:6px;">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
         <div style="display:flex;align-items:center;gap:8px;min-width:0;">
           <img src="${p.image || 'https://via.placeholder.com/60'}" />
           <div style="min-width:0;">
-            <div style="font-weight:600;font-size:13px;">${p.name} ${p.outOfStock ? '<span class="badge badge-red">OOS</span>' : ''} ${p.subCategory ? `<span class="badge badge-pur">${p.subCategory}</span>` : ''}</div>
-            <div style="font-size:11px;color:#555;">Sale: ₹${p.price} ${p.buyRate ? `(Buy: ₹${p.buyRate} +${p.marginPct || 0}%)` : ''} | Set: ${p.moq} | <span class="badge">${p.categoryName}</span></div>
+            <div style="font-weight:600;font-size:13px;">${escHtml(p.name)} ${p.outOfStock ? '<span class="badge badge-red">OOS</span>' : ''} ${fBadges}</div>
+            <div style="font-size:11px;color:#555;">Sale: ₹${p.price} ${p.buyRate ? `(Buy: ₹${p.buyRate} +${p.marginPct || 0}%)` : ''} | Set: ${p.moq} | <span class="badge">${escHtml(p.categoryName)}</span></div>
           </div>
         </div>
       </div>
@@ -1217,13 +1325,14 @@ function renderAdminProducts() {
           <button class="btn-sm" style="background:var(--d);" onclick="deleteProduct('${p.id}')">X</button>
         </div>
       </div>
-    </div>`).join("") : `<p style="color:var(--m);font-size:13px;">No products found.</p>`;
+    </div>`;
+  }).join("") : `<p style="color:var(--m);font-size:13px;">No products found.</p>`;
 }
 
 async function saveCategory() {
   const name = document.getElementById("catName").value.trim(), password = document.getElementById("catPass").value.trim();
   if (!name || !password) { alert("Category name and password are required."); return; }
-  await db.collection("categories").add({ name, password, filterLabel: "", createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+  await db.collection("categories").add({ name, password, filterGroups: [], createdAt: firebase.firestore.FieldValue.serverTimestamp() });
   document.getElementById("catName").value = ""; document.getElementById("catPass").value = "";
   await loadCategories(); showToast("✓ Category saved!");
 }
@@ -1237,85 +1346,154 @@ function copyCategoryLink(name, pass) {
 
 function renderAdminCategories() {
   document.getElementById("adminCatList").innerHTML = categories.length ? categories.map(c => `
-    <div class="list-item"><div><div style="font-weight:700;font-size:14px;">${c.name}</div><div style="font-size:12px;color:var(--p);">Pass: <strong>${c.password}</strong></div></div>
+    <div class="list-item"><div><div style="font-weight:700;font-size:14px;">${escHtml(c.name)}</div><div style="font-size:12px;color:var(--p);">Pass: <strong>${escHtml(c.password)}</strong></div></div>
     <div style="display:flex;gap:4px;">
-      <button class="btn-sm" style="background:var(--s);" onclick="copyCategoryLink('${c.name}','${c.password}')">Share</button>
-      <button class="btn-sm" style="background:var(--p);" onclick="editCatPass('${c.id}','${c.password}')">Pass</button>
+      <button class="btn-sm" style="background:var(--s);" onclick="copyCategoryLink('${escHtml(c.name)}','${escHtml(c.password)}')">Share</button>
+      <button class="btn-sm" style="background:var(--p);" onclick="editCatPass('${c.id}','${escHtml(c.password)}')">Pass</button>
       <button class="btn-sm" style="background:var(--d);" onclick="deleteCategory('${c.id}')">X</button>
     </div></div>`).join("") : `<p style="color:var(--m);font-size:13px;">No categories yet.</p>`;
 }
 
-// --- CATEGORY-WISE CUSTOM FILTER HEADING & OPTIONS ---
-async function saveCatFilterLabel() {
+// --- MULTI-GROUP FILTER CONFIGURATION ---
+async function addFilterGroup() {
   const catId = document.getElementById("filterConfigCat").value;
   if (!catId) { alert("Add a Category first."); return; }
-  const lbl = document.getElementById("catFilterLabelInp").value.trim();
-  await db.collection("categories").doc(catId).update({ filterLabel: lbl });
-  const c = categories.find(x => x.id === catId);
-  if (c) c.filterLabel = lbl;
-  onProdCatChange();
-  updateFilterBtnUI();
-  showToast("✓ Filter heading saved!");
+  const gName = document.getElementById("newFilterGroupInp").value.trim();
+  if (!gName) { alert("Filter type name is required (Ex: Gender, Material)."); return; }
+  const cat = categories.find(c => c.id === catId);
+  if (!cat) return;
+  const groups = [...(cat.filterGroups || [])];
+  if (groups.some(g => g.toLowerCase() === gName.toLowerCase())) {
+    alert("This filter type already exists!"); return;
+  }
+  groups.push(gName);
+  await db.collection("categories").doc(catId).update({ filterGroups: groups });
+  cat.filterGroups = groups;
+  document.getElementById("newFilterGroupInp").value = "";
+  renderAdminFilterConfig(gName);
+  renderProdFilterInputs(getCurrentProdFilters());
+  showToast(`✓ "${gName}" filter created!`);
+}
+
+async function removeFilterGroup(btn) {
+  const catId = document.getElementById("filterConfigCat").value;
+  const gName = btn.getAttribute("data-grp");
+  if (!confirm(`Delete "${gName}" filter type and its options?`)) return;
+  const cat = categories.find(c => c.id === catId);
+  if (!cat) return;
+  const groups = (cat.filterGroups || []).filter(g => g !== gName);
+  const upd = { filterGroups: groups };
+  if (cat.filterLabel === gName) upd.filterLabel = "";
+  await db.collection("categories").doc(catId).update(upd);
+  cat.filterGroups = groups;
+  if (cat.filterLabel === gName) cat.filterLabel = "";
+
+  const toDel = subCategories.filter(s => s.categoryId === catId && (s.groupName === gName || (!s.groupName && !groups.length)));
+  await Promise.all(toDel.map(s => db.collection("subcategories").doc(s.id).delete()));
+  subCategories = subCategories.filter(s => !toDel.some(d => d.id === s.id));
+
+  renderAdminFilterConfig();
+  renderProdFilterInputs(getCurrentProdFilters());
+  showToast("✓ Filter type removed!");
 }
 
 async function saveSubCategory() {
   const catId = document.getElementById("filterConfigCat").value;
-  if (!catId) { alert("Add a Category first."); return; }
+  const gName = document.getElementById("filterConfigGroup").value;
+  if (!catId || !gName) { alert("Create and select a Filter Type first."); return; }
   const name = document.getElementById("subCatName").value.trim();
-  if (!name) { alert("Filter option name is required."); return; }
-  await db.collection("subcategories").add({ name, categoryId: catId, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+  if (!name) { alert("Option name is required."); return; }
+  await db.collection("subcategories").add({ name, categoryId: catId, groupName: gName, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
   document.getElementById("subCatName").value = "";
-  await loadSubCategories(); showToast("✓ Filter option saved!");
+  await loadSubCategories();
+  document.getElementById("filterConfigGroup").value = gName;
+  showToast(`✓ Added to ${gName}!`);
 }
 
 async function deleteSubCategory(id) {
-  if (confirm("Delete this filter option?")) {
-    await db.collection("subcategories").doc(id).delete();
-    await loadSubCategories();
-  }
+  const curGrp = document.getElementById("filterConfigGroup").value;
+  await db.collection("subcategories").doc(id).delete();
+  await loadSubCategories();
+  if (curGrp) document.getElementById("filterConfigGroup").value = curGrp;
 }
 
-function renderAdminSubCategories() {
+function renderAdminFilterConfig(selectGroup) {
   const catId = document.getElementById("filterConfigCat").value;
   const cat = categories.find(c => c.id === catId);
-  document.getElementById("catFilterLabelInp").value = (cat && cat.filterLabel) ? cat.filterLabel : "";
-  const list = subCategories.filter(s => s.categoryId === catId || !s.categoryId);
-  document.getElementById("adminSubCatList").innerHTML = list.length ? list.map(s => `
-    <div class="list-item">
-      <div style="font-weight:700;font-size:14px;">${s.name}</div>
-      <button class="btn-sm" style="background:var(--d);" onclick="deleteSubCategory('${s.id}')">X</button>
-    </div>`).join("") : `<p style="color:var(--m);font-size:12px;">No filter options for this category yet.</p>`;
+  const groups = getCatFilterGroups(cat);
+
+  const chipsEl = document.getElementById("adminFilterGroupsChips");
+  const addSec = document.getElementById("filterOptionAddSection");
+  const grpSel = document.getElementById("filterConfigGroup");
+  const prevSel = selectGroup || grpSel.value;
+
+  if (!groups.length) {
+    chipsEl.innerHTML = `<span style="font-size:12px;color:var(--m);">No filter types created yet for this category.</span>`;
+    addSec.classList.add("hidden");
+    document.getElementById("adminSubCatList").innerHTML = "";
+    return;
+  }
+
+  chipsEl.innerHTML = groups.map(g => `<span class="fg-tag">${escHtml(g)} <button type="button" data-grp="${escHtml(g)}" onclick="removeFilterGroup(this)">×</button></span>`).join("");
+  addSec.classList.remove("hidden");
+  grpSel.innerHTML = groups.map(g => `<option value="${escHtml(g)}">${escHtml(g)}</option>`).join("");
+  if (prevSel && groups.includes(prevSel)) grpSel.value = prevSel;
+
+  const catSubs = subCategories.filter(s => s.categoryId === catId);
+  let listHtml = "";
+  groups.forEach(g => {
+    const opts = catSubs.filter(s => (s.groupName || groups[0]) === g);
+    listHtml += `<div style="margin-bottom:10px;padding:8px;background:#f9fafb;border-radius:8px;border:1px solid #e5e7eb;">
+      <div style="font-size:12px;font-weight:700;color:var(--p);margin-bottom:6px;">${escHtml(g)} (${opts.length})</div>
+      ${opts.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px;">${opts.map(o => `
+        <span style="display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid #d1d5db;padding:4px 8px;border-radius:6px;font-size:12px;font-weight:600;">
+          ${escHtml(o.name)} <button type="button" style="background:none;border:none;color:var(--d);font-weight:700;cursor:pointer;" onclick="deleteSubCategory('${o.id}')">×</button>
+        </span>`).join("")}</div>` : `<div style="font-size:11px;color:var(--m);">No options added yet.</div>`}
+    </div>`;
+  });
+  document.getElementById("adminSubCatList").innerHTML = listHtml;
 }
 
 function onProdCatChange() {
-  const catId = document.getElementById("prodCat").value;
-  const cat = categories.find(c => c.id === catId);
-  document.getElementById("prodSubCatLabel").innerText = (cat && cat.filterLabel) ? cat.filterLabel : "Sub-Category (Filter)";
-  populateSubCatDropdown();
+  renderProdFilterInputs(getCurrentProdFilters());
 }
 
-function populateSubCatDropdown() {
+function renderProdFilterInputs(selectedMap = {}) {
   const catId = document.getElementById("prodCat").value;
-  const curVal = document.getElementById("prodSubCat").value;
-  const list = subCategories.filter(s => s.categoryId === catId || !s.categoryId);
-  const opts = `<option value="">None</option>` + list.map(s => `<option value="${s.name}">${s.name}</option>`).join("");
-  document.getElementById("prodSubCat").innerHTML = opts;
-  if (curVal && list.some(s => s.name === curVal)) document.getElementById("prodSubCat").value = curVal;
+  const container = document.getElementById("prodDynamicFilters");
+  const cat = categories.find(c => c.id === catId);
+  const groups = getCatFilterGroups(cat);
+  const catSubs = subCategories.filter(s => s.categoryId === catId);
+
+  if (!groups.length) {
+    container.innerHTML = "";
+    return;
+  }
+
+  container.innerHTML = groups.map(gName => {
+    const opts = catSubs.filter(s => (s.groupName || groups[0]) === gName);
+    const curVal = selectedMap[gName] || "";
+    const optHtml = `<option value="">None</option>` + opts.map(o => `<option value="${escHtml(o.name)}" ${curVal.toLowerCase() === o.name.toLowerCase() ? 'selected' : ''}>${escHtml(o.name)}</option>`).join("");
+    return `<div>
+      <label>${escHtml(gName)}</label>
+      <select class="prod-dyn-filter" data-group="${escHtml(gName)}">${optHtml}</select>
+    </div>`;
+  }).join("");
 }
 
 function populateCategoryDropdowns() {
   const curProdCat = document.getElementById("prodCat").value;
   const curFilterCat = document.getElementById("adminFilterCat").value;
   const curCfgCat = document.getElementById("filterConfigCat").value;
-  const opts = categories.map(c => `<option value="${c.id}">${c.name}</option>`).join("");
+  const opts = categories.map(c => `<option value="${c.id}">${escHtml(c.name)}</option>`).join("");
   document.getElementById("prodCat").innerHTML = opts || `<option value="">Add Category First</option>`;
   document.getElementById("adminFilterCat").innerHTML = `<option value="ALL">All Categories</option>` + opts;
   document.getElementById("filterConfigCat").innerHTML = opts || `<option value="">Add Category First</option>`;
   if (curProdCat && categories.some(c => c.id === curProdCat)) document.getElementById("prodCat").value = curProdCat;
   if (curFilterCat) document.getElementById("adminFilterCat").value = curFilterCat;
   if (curCfgCat && categories.some(c => c.id === curCfgCat)) document.getElementById("filterConfigCat").value = curCfgCat;
-  onProdCatChange();
-  renderAdminSubCategories();
+  renderProdFilterInputs(getCurrentProdFilters());
+  renderAdminFilterConfig();
 }
 
 async function saveAdBanner() {
