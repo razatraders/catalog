@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#1a56db" />
+<link rel="manifest" href="manifest.json" />
+<link rel="apple-touch-icon" href="IMG_20261113_171315.jpg" />
 <title>Raza Traders - Wholesale Catalog</title>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
@@ -93,7 +96,8 @@ label{display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#3741
     <input type="tel" id="custMobileLogin" maxlength="10" placeholder="Ex: 9876543210" />
     <button class="btn" id="loginBtn" onclick="handleCustomerAuth()">Login</button>
     <p id="loginErr" style="color:var(--d);margin-top:10px;font-size:13px;"></p>
-    <hr style="margin:16px 0;border:none;border-top:1px solid #e5e7eb;" />
+    <button class="btn btn-s" id="installAppBtn" style="margin-top:12px;" onclick="installPWA()">📲 Install Raza Traders App</button>
+    <hr style="margin:14px 0;border:none;border-top:1px solid #e5e7eb;" />
     <button class="btn btn-o" onclick="openAdminPrompt()">Admin Login (Owner)</button>
   </div>
 </div>
@@ -291,6 +295,29 @@ label{display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#3741
 <div id="zoomModal" class="modal-bg hidden" onclick="this.classList.add('hidden')"><img id="zoomImg" class="img-zoom" /></div>
 
 <script>
+// --- PWA SERVICE WORKER & INSTALL ---
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("sw.js").catch(() => {});
+}
+let deferredPrompt = null;
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+});
+if (window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone) {
+  document.getElementById("installAppBtn").classList.add("hidden");
+}
+async function installPWA() {
+  if (deferredPrompt) {
+    deferredPrompt.prompt();
+    const res = await deferredPrompt.userChoice;
+    if (res.outcome === "accepted") document.getElementById("installAppBtn").classList.add("hidden");
+    deferredPrompt = null;
+  } else {
+    alert("To install Raza Traders App:\n1. Tap the 3 dots (⋮) at the top-right of Chrome\n2. Tap 'Install app' or 'Add to Home screen'");
+  }
+}
+
 const firebaseConfig = {
   apiKey: "AIzaSyBVliVOy2wYTv5B2Xn9FRg6P7FkeQ3cpLY",
   authDomain: "raza-traders-934e9.firebaseapp.com",
