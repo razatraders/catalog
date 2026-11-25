@@ -17,7 +17,9 @@ body{background:var(--bg);color:#111827;padding-bottom:90px}
 .hidden{display:none!important}
 header{background:var(--p);color:#fff;padding:13px 15px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:50;box-shadow:0 2px 6px rgba(0,0,0,.12)}
 header h1{font-size:18px;font-weight:700}header small{display:block;font-size:12px;opacity:.9}
-.btn-sm{background:rgba(255,255,255,.2);color:#fff;border:none;padding:6px 10px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer}
+.hdr-actions{display:flex;align-items:center;gap:6px}
+.btn-sm{background:rgba(255,255,255,.2);color:#fff;border:none;padding:6px 10px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;position:relative}
+.bell-dot{position:absolute;top:3px;right:3px;width:8px;height:8px;background:#ef4444;border-radius:50%;border:1px solid #fff}
 .container{max-width:720px;margin:0 auto;padding:12px}
 .card{background:#fff;border-radius:12px;padding:14px;box-shadow:0 1px 4px rgba(0,0,0,.08);margin-bottom:12px}
 .login-box{max-width:380px;margin:25px auto;text-align:center}
@@ -35,15 +37,25 @@ label{display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#3741
 .pill,.tab-btn{padding:8px 12px;border-radius:8px;border:1px solid var(--p);background:#fff;color:var(--p);font-size:12px;font-weight:600;white-space:nowrap;cursor:pointer}
 .tab-btn{border:none;background:#e5e7eb;color:#374151}
 .pill.active,.tab-btn.active{background:var(--p);color:#fff}
+.pill.off-season{border-color:#9ca3af;color:#6b7280;background:#f9fafb}
+.pill.off-season.active{background:#4b5563;border-color:#4b5563;color:#fff}
+.notice-strip{background:#eff6ff;border:1px solid #93c5fd;color:#1e3a8a;padding:9px 11px;border-radius:10px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px;font-weight:600}
 .inline-ad{background:#fff;border-radius:10px;padding:8px;margin-bottom:10px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
-.inline-ad img{width:100%;max-height:145px;object-fit:contain;border-radius:8px;background:#000;cursor:pointer;display:block}
+.ad-slider{display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none}
+.ad-slider::-webkit-scrollbar{display:none}
+.ad-slide{flex:0 0 100%;scroll-snap-align:center;position:relative}
+.ad-slide img{width:100%;max-height:150px;object-fit:contain;border-radius:8px;background:#000;cursor:pointer;display:block}
+.ad-count-pill{position:absolute;bottom:6px;right:8px;background:rgba(0,0,0,.65);color:#fff;font-size:10px;padding:2px 7px;border-radius:999px;font-weight:600}
 .v-strip{display:flex;gap:6px;overflow-x:auto;margin-top:6px}
-.v-pill{background:#eff6ff;border:1px dashed var(--p);padding:4px 8px;border-radius:6px;font-size:11px;white-space:nowrap;font-weight:600;color:#1e3a8a}
+.v-pill{background:#eff6ff;border:1px dashed var(--p);padding:4px 8px;border-radius:6px;font-size:11px;white-space:nowrap;font-weight:600;color:#1e3a8a;cursor:pointer}
 .lock-banner{background:#fef3c7;border:1px solid #f59e0b;color:#92400e;padding:10px;border-radius:10px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px;font-weight:600}
 .lock-banner button{background:#d97706;color:#fff;border:none;padding:7px 11px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer}
+.offseason-box{background:#fff;border:1px dashed #9ca3af;border-radius:12px;padding:28px 16px;text-align:center;margin-top:8px}
+.offseason-box h3{color:#374151;margin-bottom:6px;font-size:16px}
+.offseason-box p{color:#6b7280;font-size:13px;line-height:1.45;margin-bottom:12px}
 .search-filter-row{display:flex;gap:6px;margin-bottom:10px}
-.search-filter-row input{margin:0;flex:1}
-.filter-btn{padding:0 13px;border-radius:8px;border:1px solid var(--p);background:#fff;color:var(--p);font-size:13px;font-weight:700;white-space:nowrap;cursor:pointer}
+.search-filter-row input{margin:0;flex:1;min-width:0}
+.filter-btn{padding:0 11px;border-radius:8px;border:1px solid var(--p);background:#fff;color:var(--p);font-size:12px;font-weight:700;white-space:nowrap;cursor:pointer}
 .filter-btn.active{background:var(--p);color:#fff}
 .f-sec{margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid #e5e7eb}
 .f-sec-title{font-size:12px;font-weight:700;color:#374151;margin-bottom:7px;text-transform:uppercase;letter-spacing:.3px}
@@ -53,7 +65,8 @@ label{display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#3741
 .fg-tag{display:inline-flex;align-items:center;gap:6px;background:#eff6ff;border:1px solid #93c5fd;color:#1e3a8a;padding:4px 9px;border-radius:999px;font-size:12px;font-weight:700}
 .fg-tag button{background:none;border:none;color:#dc2626;font-weight:700;font-size:14px;cursor:pointer;line-height:1}
 .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
-.prod-card{background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.08);display:flex;flex-direction:column}
+.prod-card{background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.08);display:flex;flex-direction:column;position:relative}
+.new-ribbon{position:absolute;top:7px;left:7px;background:#16a34a;color:#fff;font-size:10px;font-weight:800;padding:2px 6px;border-radius:4px;letter-spacing:.4px;box-shadow:0 1px 3px rgba(0,0,0,.25)}
 .prod-img{width:100%;height:145px;object-fit:cover;background:#e5e7eb;cursor:pointer}
 .prod-body{padding:9px;flex:1;display:flex;flex-direction:column;justify-content:space-between}
 .prod-title{font-size:13px;font-weight:600;margin-bottom:2px}
@@ -73,13 +86,21 @@ label{display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#3741
 .list-item{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 0;border-bottom:1px solid #e5e7eb}
 .list-item img{width:48px;height:48px;border-radius:8px;object-fit:cover;background:#eee;flex-shrink:0}
 .badge{font-size:10px;padding:2px 6px;border-radius:4px;background:#dbeafe;color:#1e40af;font-weight:600}
-.badge-red{background:#fee2e2;color:#b91c1c}.badge-grn{background:#dcfce7;color:#166534}.badge-pur{background:#ede9fe;color:#5b21b6}
+.badge-red{background:#fee2e2;color:#b91c1c}.badge-grn{background:#dcfce7;color:#166534}.badge-pur{background:#ede9fe;color:#5b21b6}.badge-org{background:#fef3c7;color:#b45309}
 .queue-bar{background:#eff6ff;border:1px solid #93c5fd;color:#1e3a8a;padding:8px 10px;border-radius:8px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:700}
 .ord-card{border:1px solid #e5e7eb;border-radius:8px;padding:10px;margin-bottom:10px;font-size:12px;background:#f9fafb}
 .ord-item-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #eceff1}
 .ord-thumb{width:42px;height:42px;border-radius:6px;object-fit:cover;background:#e5e7eb;cursor:pointer;flex-shrink:0;border:1px solid #d1d5db}
 .toggle-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #f3f4f6;font-size:13px;font-weight:600}
 .toggle-row input{width:20px;height:20px;margin:0}
+.v-chip-applied{display:inline-flex;align-items:center;gap:6px;background:#dcfce7;border:1px solid #86efac;color:#166534;padding:4px 9px;border-radius:6px;font-size:11px;font-weight:700}
+.v-chip-applied button{background:none;border:none;color:#b91c1c;font-weight:800;font-size:13px;cursor:pointer}
+.v-offer-card{border:1px solid #d1d5db;border-radius:9px;padding:10px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:8px;background:#fff}
+.v-offer-card.selected{border-color:var(--s);background:#f0fdf4}
+.banner-thumb-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+.banner-thumb-box{position:relative;border:1px solid #d1d5db;border-radius:8px;overflow:hidden;background:#000;height:78px}
+.banner-thumb-box img{width:100%;height:100%;object-fit:contain}
+.banner-thumb-box button{position:absolute;top:3px;right:3px;background:var(--d);color:#fff;border:none;width:22px;height:22px;border-radius:50%;font-size:11px;font-weight:700;cursor:pointer}
 .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;padding:14px;z-index:100}
 .modal{background:#fff;border-radius:12px;padding:16px;width:100%;max-width:440px;max-height:88vh;overflow-y:auto}
 .img-zoom{max-width:100%;max-height:80vh;border-radius:10px}
@@ -90,7 +111,11 @@ label{display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#3741
 <body>
 <header>
   <div><h1 id="hdrShopName">Raza Traders</h1><small id="hdrSub">Wholesale Digital Catalog</small></div>
-  <button id="logoutBtn" class="btn-sm hidden" onclick="logout()">Logout</button>
+  <div class="hdr-actions">
+    <button id="noticeBellBtn" class="btn-sm hidden" onclick="openNoticeModal()">🔔<span id="noticeBellDot" class="bell-dot hidden"></span></button>
+    <button id="myOrdersBtn" class="btn-sm hidden" onclick="openMyOrdersModal()">My Orders</button>
+    <button id="logoutBtn" class="btn-sm hidden" onclick="logout()">Logout</button>
+  </div>
 </header>
 
 <!-- SPLASH SCREEN FOR AUTO-LOGIN APP -->
@@ -128,21 +153,33 @@ label{display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#3741
 
 <!-- 2. CUSTOMER CATALOG -->
 <div id="customerView" class="container hidden">
+  <div id="custNoticeStrip" class="notice-strip hidden">
+    <span id="custNoticeText" style="flex:1;"></span>
+    <button class="btn-sm" style="background:var(--p);padding:4px 8px;" onclick="dismissNoticeStrip()">OK</button>
+  </div>
   <div id="catPills" class="cat-pills"></div>
   <div id="inlineAdBox" class="inline-ad hidden">
-    <img id="inlineAdImg" class="hidden" onclick="zoomImage(this.src)" />
+    <div id="adSlider" class="ad-slider"></div>
     <div id="inlineVoucherStrip" class="v-strip"></div>
   </div>
-  <div id="lockBanner" class="lock-banner hidden">
-    <span>🔒 Rates &amp; Ordering are locked for this category.</span>
-    <button onclick="unlockCurrentCat()">🔓 Unlock Rates</button>
+  <div id="offSeasonBox" class="offseason-box hidden">
+    <h3 id="offSeasonTitle">⏸️ Currently Off-Season</h3>
+    <p>Items in this category are temporarily closed for the season and will be live soon. For advance inquiry, please message us on WhatsApp.</p>
+    <button class="btn btn-s" style="max-width:240px;margin:0 auto;" onclick="inquireOffSeasonWA()">💬 Inquiry on WhatsApp</button>
   </div>
-  <div class="search-filter-row">
-    <input type="text" id="searchInput" placeholder="Search model or item..." oninput="renderCustomerProducts()" />
-    <button id="custFilterBtn" class="filter-btn" onclick="openFilterModal()">Filter</button>
+  <div id="activeCatCatalogSection">
+    <div id="lockBanner" class="lock-banner hidden">
+      <span>🔒 Rates &amp; Ordering are locked for this category.</span>
+      <button onclick="unlockCurrentCat()">🔓 Unlock Rates</button>
+    </div>
+    <div class="search-filter-row">
+      <input type="text" id="searchInput" placeholder="Search model or item..." oninput="renderCustomerProducts()" />
+      <button id="newOnlyBtn" class="filter-btn" onclick="toggleNewOnlyFilter()">✨ New</button>
+      <button id="custFilterBtn" class="filter-btn" onclick="openFilterModal()">Filter</button>
+    </div>
+    <div id="custProductGrid" class="grid"></div>
+    <p id="custEmptyMsg" class="hidden" style="text-align:center;color:var(--m);margin-top:30px;">No items found.</p>
   </div>
-  <div id="custProductGrid" class="grid"></div>
-  <p id="custEmptyMsg" class="hidden" style="text-align:center;color:var(--m);margin-top:30px;">No items found.</p>
 </div>
 
 <div id="cartBar" class="cart-bar hidden">
@@ -186,8 +223,8 @@ label{display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#3741
         <div style="flex:1;"><label>Sale Rate (₹ / pc) *</label><input type="number" id="prodPrice" placeholder="Auto or Manual" /></div>
       </div>
       <div style="display:flex;gap:10px;">
-        <div style="flex:1;"><label>Margin (% - Private)</label><input type="number" id="prodMargin" value="30" placeholder="30" oninput="calcSalePrice()" /></div>
-        <div style="flex:1;"><label>MOQ (1 Set Pcs) *</label><input type="number" id="prodMoq" value="6" placeholder="6" /></div>
+        <div style="flex:1;"><label>Margin (% - Sticky)</label><input type="number" id="prodMargin" value="30" placeholder="30" oninput="calcSalePrice()" /></div>
+        <div style="flex:1;"><label>MOQ (1 Set Pcs - Sticky) *</label><input type="number" id="prodMoq" value="6" placeholder="6" /></div>
       </div>
       <label>Description (Optional)</label>
       <textarea id="prodDesc" placeholder="Ex: TR90 frame, UV400 lens, mix colors"></textarea>
@@ -195,8 +232,12 @@ label{display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#3741
       <button class="btn btn-o hidden" id="cancelEditBtn" style="margin-top:8px;" onclick="resetProdForm(true)">Cancel Edit</button>
     </div>
     <div class="card">
-      <h3 style="margin-bottom:8px;">All Products (<span id="totalProdCount">0</span>)</h3>
-      <select id="adminFilterCat" onchange="renderAdminProducts()"><option value="ALL">All Categories</option></select>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <h3 id="adminProdCountTitle">All Products (0)</h3>
+        <button type="button" id="adminOosFilterBtn" class="btn-sm" style="background:#6b7280;" onclick="toggleAdminOosFilter()">Out of Stock Only</button>
+      </div>
+      <select id="adminFilterCat" onchange="renderAdminProducts()"></select>
+      <input type="text" id="adminSearchProd" placeholder="Search model or item in list..." oninput="renderAdminProducts()" />
       <div id="adminProdList"></div>
     </div>
   </div>
@@ -239,7 +280,7 @@ label{display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#3741
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
         <h3>Order History (<span id="totalOrdCount">0</span>)</h3>
-        <button class="btn-sm" style="background:var(--p);" onclick="loadAdminRecords()">Refresh</button>
+        <button class="btn-sm" style="background:var(--p);" onclick="loadAdminRecords(true)">Refresh</button>
       </div>
       <div id="adminOrdList"></div>
     </div>
@@ -250,7 +291,7 @@ label{display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#3741
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
         <h3>Registered Users (<span id="totalCustCount">0</span>)</h3>
-        <button class="btn-sm" style="background:var(--p);" onclick="loadAdminRecords()">Refresh</button>
+        <button class="btn-sm" style="background:var(--p);" onclick="loadAdminRecords(true)">Refresh</button>
       </div>
       <div style="display:flex;gap:6px;margin-bottom:10px;">
         <input type="tel" id="manualBlockNum" maxlength="10" placeholder="Enter 10-digit no. to block" style="margin:0;" />
@@ -263,21 +304,40 @@ label{display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#3741
   <!-- TAB: OFFERS & ADS -->
   <div id="adminOffTab" class="hidden">
     <div class="card">
-      <h3 style="margin-bottom:10px;">Catalog Offer Banner</h3>
-      <label>Upload Offer / Ad Photo</label>
-      <input type="file" id="adImgFile" onchange="compressImg(event, 'ad')" />
-      <img id="adPreview" class="preview-thumb hidden" />
-      <div style="display:flex;gap:6px;">
-        <button class="btn btn-s" onclick="saveAdBanner()">Save Banner</button>
-        <button class="btn btn-d" onclick="removeAdBanner()">Remove Banner</button>
-      </div>
+      <h3 style="margin-bottom:6px;">Catalog Offer Banners (<span id="bannerCountTxt">0</span> / 5)</h3>
+      <p style="font-size:11px;color:var(--m);margin-bottom:10px;">Upload up to 5 offer or voucher posters. Customers can swipe them in catalog.</p>
+      <input type="file" id="adImgFile" onchange="addAdBannerFile(event)" />
+      <div id="adminBannerGrid" class="banner-thumb-grid"></div>
     </div>
     <div class="card">
       <h3 style="margin-bottom:10px;">Create Discount Vouchers</h3>
-      <label>Voucher Code</label><input type="text" id="vCode" placeholder="Ex: RTB1 or SAVE10" />
+      <label>Voucher Code</label><input type="text" id="vCode" placeholder="Ex: RTB1 or FIRST300" style="text-transform:uppercase;" />
+      <div style="display:flex;gap:8px;">
+        <div style="flex:1;">
+          <label>Discount Type</label>
+          <select id="vDiscType">
+            <option value="pct">Percentage (%)</option>
+            <option value="flat">Flat Rupees (₹)</option>
+          </select>
+        </div>
+        <div style="flex:1;"><label>Discount Value *</label><input type="number" id="vDisc" placeholder="Ex: 5 or 300" /></div>
+      </div>
       <div style="display:flex;gap:8px;">
         <div style="flex:1;"><label>Min Order (₹)</label><input type="number" id="vMin" placeholder="20000" /></div>
-        <div style="flex:1;"><label>Discount (%)</label><input type="number" id="vDisc" placeholder="5" /></div>
+        <div style="flex:1;">
+          <label>Limit Per Customer</label>
+          <select id="vMaxUses">
+            <option value="0">Unlimited</option>
+            <option value="1">1 Time Only</option>
+            <option value="2">2 Times</option>
+            <option value="3">3 Times</option>
+            <option value="5">5 Times</option>
+          </select>
+        </div>
+      </div>
+      <div class="toggle-row" style="margin-bottom:10px;">
+        <span>First-Time Customer Only (1st Order)</span>
+        <input type="checkbox" id="vFirstTime" />
       </div>
       <button class="btn" onclick="saveVoucher()">Save Voucher</button>
       <div id="adminVoucherList" style="margin-top:12px;"></div>
@@ -297,8 +357,25 @@ label{display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#3741
         <label>Consignor / Shop Name</label><input type="text" id="setShopName" placeholder="Raza Traders" />
         <label>WhatsApp Number (10 Digits)</label><input type="tel" id="setWhatsapp" placeholder="Ex: 9876543210" />
         <label>Admin Login PIN</label><input type="text" id="setAdminPin" placeholder="7860" />
+        <label>Minimum Order Amount (₹) (0 = No Limit)</label><input type="number" id="setMinOrderAmt" placeholder="Ex: 2000" />
       </div>
       <button class="btn btn-s" onclick="saveSettings()">Save Settings &amp; Logo</button>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-bottom:6px;">In-App Customer Notice (🔔)</h3>
+      <p style="font-size:11px;color:var(--m);margin-bottom:8px;">Customers see this notice inside the app (0 extra database reads).</p>
+      <textarea id="setNoticeText" placeholder="Ex: Goggles aur Winter Caps ka naya stock aa gaya hai!"></textarea>
+      <div style="display:flex;gap:6px;">
+        <button class="btn" onclick="saveNoticeSetting(false)">Publish Notice</button>
+        <button class="btn btn-o" onclick="saveNoticeSetting(true)">Clear Notice</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-bottom:6px;">Data Backup</h3>
+      <p style="font-size:11px;color:var(--m);margin-bottom:8px;">Download a full backup file of all products, categories, customers &amp; orders to your phone.</p>
+      <button class="btn btn-o" id="backupBtn" onclick="downloadFullBackup()">📥 Download Full Data Backup</button>
     </div>
   </div>
 </div>
@@ -318,25 +395,63 @@ label{display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#3741
 <!-- CART MODAL (CUSTOMER) -->
 <div id="cartModal" class="modal-bg hidden">
   <div class="modal">
-    <h3 style="margin-bottom:4px;">Order Summary</h3>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+      <h3>Order Summary</h3>
+      <button type="button" class="btn-sm" style="background:var(--d);padding:4px 8px;" onclick="clearCustomerCart()">Clear Cart</button>
+    </div>
     <div style="font-size:12px;color:var(--m);margin-bottom:8px;">Consignor: <strong id="modalConsignor">Raza Traders</strong></div>
     <div id="cartItemsList" style="margin-bottom:10px;font-size:13px;"></div>
     <div style="display:flex;gap:6px;margin-bottom:8px;">
-      <input type="text" id="custVoucherInput" placeholder="Voucher Code (Optional)" style="margin:0;text-transform:uppercase;" />
-      <button class="btn-sm" style="background:var(--p);white-space:nowrap;" onclick="applyCustomerVoucher()">Apply</button>
+      <input type="text" id="custVoucherInput" placeholder="Voucher Code" style="margin:0;text-transform:uppercase;flex:1;" />
+      <button type="button" class="btn-sm" style="background:var(--p);white-space:nowrap;" onclick="applyCustomerVoucher()">Apply</button>
+      <button type="button" class="btn-sm" style="background:#0f766e;white-space:nowrap;" onclick="openVoucherModal()">View Offers</button>
     </div>
+    <div id="appliedVouchersBox" style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:6px;"></div>
     <div id="voucherMsg" style="font-size:12px;margin-bottom:8px;font-weight:600;"></div>
     <div style="font-size:13px;border-top:1px solid #eee;padding-top:8px;margin-bottom:10px;">
       <div>Subtotal: ₹<span id="modalSub">0</span> (<span id="modalPcs">0</span> pcs)</div>
-      <div id="modalDiscRow" class="hidden" style="color:var(--s);font-weight:600;">Discount: -₹<span id="modalDiscAmt">0</span></div>
+      <div id="modalDiscRow" class="hidden" style="color:var(--s);font-weight:600;">Total Discount: -₹<span id="modalDiscAmt">0</span></div>
       <div style="font-weight:700;font-size:16px;margin-top:4px;">Grand Total: ₹<span id="modalTotal">0</span></div>
     </div>
     <label>Consignee Mobile Number (10 Digits) *</label>
     <input type="tel" id="custMobileOrder" maxlength="10" placeholder="Ex: 9876543210" />
     <label>Consignee / Shop Name (Optional)</label>
     <input type="text" id="custName" placeholder="Ex: Sharma Opticals" />
+    <label>Remark / Note (Optional)</label>
+    <textarea id="custRemark" placeholder="Ex: Mix colors, transport name, packing note..."></textarea>
     <button class="btn btn-s" id="waSendBtn" onclick="sendCustomerOrder()">Place Order &amp; Notify on WhatsApp</button>
     <button class="btn btn-o" style="margin-top:8px;" onclick="closeCartModal()">Close</button>
+  </div>
+</div>
+
+<!-- CUSTOMER VOUCHERS VIEW MODAL (MULTI-SELECT) -->
+<div id="voucherViewModal" class="modal-bg hidden" onclick="if(event.target===this)this.classList.add('hidden')">
+  <div class="modal">
+    <h3 style="margin-bottom:4px;">Available Discount Vouchers</h3>
+    <p style="font-size:12px;color:var(--m);margin-bottom:10px;">Tap to select one or more vouchers for this order:</p>
+    <div id="voucherOffersList"></div>
+    <button class="btn" style="margin-top:8px;" onclick="document.getElementById('voucherViewModal').classList.add('hidden')">Done</button>
+  </div>
+</div>
+
+<!-- CUSTOMER MY ORDERS MODAL -->
+<div id="myOrdersModal" class="modal-bg hidden" onclick="if(event.target===this)this.classList.add('hidden')">
+  <div class="modal">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <h3>My Order History</h3>
+      <button type="button" class="btn-sm" style="background:var(--p);" onclick="loadCustomerPastOrders(true)">Refresh</button>
+    </div>
+    <div id="myOrdersList"></div>
+    <button class="btn btn-o" style="margin-top:8px;" onclick="document.getElementById('myOrdersModal').classList.add('hidden')">Close</button>
+  </div>
+</div>
+
+<!-- CUSTOMER NOTICE MODAL -->
+<div id="noticeModal" class="modal-bg hidden" onclick="if(event.target===this)this.classList.add('hidden')">
+  <div class="modal">
+    <h3 style="margin-bottom:8px;">🔔 Announcement from <span id="noticeModalShop">Raza Traders</span></h3>
+    <p id="noticeModalBody" style="font-size:14px;line-height:1.5;color:#1f2937;background:#eff6ff;padding:12px;border-radius:8px;margin-bottom:12px;white-space:pre-wrap;"></p>
+    <button class="btn" onclick="document.getElementById('noticeModal').classList.add('hidden')">Close</button>
   </div>
 </div>
 
@@ -405,7 +520,7 @@ function showToast(msg) {
   el.innerText = msg;
   el.classList.remove("hidden");
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.add("hidden"), 1500);
+  toastTimer = setTimeout(() => el.classList.add("hidden"), 1600);
 }
 
 function escHtml(s) {
@@ -434,17 +549,27 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
-let appSettings = { shopName: "Raza Traders", whatsapp: "", adminPin: "7860", catalogOn: true, strictSet: true, logo: "", adBanner: "" };
+let appSettings = {
+  shopName: "Raza Traders", whatsapp: "", adminPin: "7860",
+  catalogOn: true, strictSet: true, logo: "", adBanner: "", adBanners: [],
+  minOrderAmt: 0, noticeText: "", noticeUpdatedAt: 0
+};
 let categories = [], subCategories = [], products = [], orders = [], customers = [], vouchers = [];
-let unlockedCatIds = new Set(), activeCategory = null, activeFilters = {}, activeMobile = "", activeCustName = "", authMode = "login", cart = {};
-let appliedVoucher = null, editingOrderIdx = -1;
-let upProdImg = "", upLogoImg = "", upAdImg = "";
+let unlockedCatIds = new Set(), activeCategory = null, activeFilters = {}, newOnlyFilter = false;
+let activeMobile = "", activeCustName = "", authMode = "login", cart = {};
+let appliedVouchers = [], customerPastOrders = null;
+let editingOrderIdx = -1, adminOosOnly = false;
+let upLogoImg = "", upProdImg = "";
 let photoQueue = [], queueIdx = 0;
+let stickyMargin = "30", stickyMoq = "6";
 
 async function initApp() {
   try {
     const setDoc = await db.collection("settings").doc("config").get();
     if (setDoc.exists) appSettings = { ...appSettings, ...setDoc.data() };
+    if (!Array.isArray(appSettings.adBanners)) {
+      appSettings.adBanners = appSettings.adBanner ? [appSettings.adBanner] : [];
+    }
     applySettingsUI();
     await Promise.all([loadCategories(), loadSubCategories(), loadProducts(), loadVouchers()]);
     populateCategoryDropdowns();
@@ -474,9 +599,12 @@ function applySettingsUI() {
   document.getElementById("loginShopTitle").innerText = appSettings.shopName;
   document.getElementById("splashShopTitle").innerText = appSettings.shopName;
   document.getElementById("modalConsignor").innerText = appSettings.shopName;
+  document.getElementById("noticeModalShop").innerText = appSettings.shopName;
   document.getElementById("setShopName").value = appSettings.shopName;
   document.getElementById("setWhatsapp").value = appSettings.whatsapp || "";
   document.getElementById("setAdminPin").value = appSettings.adminPin || "7860";
+  document.getElementById("setMinOrderAmt").value = appSettings.minOrderAmt || "";
+  document.getElementById("setNoticeText").value = appSettings.noticeText || "";
   document.getElementById("ctrlCatalogOn").checked = appSettings.catalogOn !== false;
   document.getElementById("ctrlStrictSet").checked = appSettings.strictSet !== false;
   try {
@@ -488,9 +616,7 @@ function applySettingsUI() {
     const sl = document.getElementById("splashLogoImg"); sl.src = appSettings.logo; sl.classList.remove("hidden");
     const lp = document.getElementById("logoPreview"); lp.src = appSettings.logo; lp.classList.remove("hidden");
   }
-  if (appSettings.adBanner) {
-    const ap = document.getElementById("adPreview"); ap.src = appSettings.adBanner; ap.classList.remove("hidden");
-  }
+  renderAdminBanners();
 }
 
 function setAuthMode(mode) {
@@ -508,7 +634,7 @@ async function loadCategories() {
     const data = d.data();
     let groups = Array.isArray(data.filterGroups) ? [...data.filterGroups] : [];
     if (data.filterLabel && !groups.includes(data.filterLabel)) groups.unshift(data.filterLabel);
-    return { id: d.id, ...data, filterGroups: groups };
+    return { id: d.id, ...data, filterGroups: groups, offSeason: !!data.offSeason };
   });
   renderAdminCategories(); populateCategoryDropdowns();
 }
@@ -528,31 +654,58 @@ async function loadProducts() {
   const total = snap.docs.length;
   products = snap.docs.map((d, idx) => {
     const data = d.data();
-    const ts = data.createdAt && data.createdAt.toMillis ? data.createdAt.toMillis() : (1000000 + (total - idx) * 10);
+    const createdMs = data.createdAt && data.createdAt.toMillis ? data.createdAt.toMillis() : 0;
+    const ts = createdMs || (1000000 + (total - idx) * 10);
     const ord = typeof data.sortOrder === "number" ? data.sortOrder : ts;
-    return { id: d.id, ...data, _order: ord };
+    return { id: d.id, ...data, _order: ord, _createdMs: createdMs };
   });
   sortProductsList();
-  document.getElementById("totalProdCount").innerText = products.length;
   renderAdminProducts();
 }
 
 async function loadVouchers() {
   const snap = await db.collection("vouchers").get();
-  vouchers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  vouchers = snap.docs.map(d => {
+    const data = d.data();
+    return {
+      id: d.id, ...data,
+      discType: data.discType || "pct",
+      maxUses: Number(data.maxUses) || 0,
+      firstTimeOnly: !!data.firstTimeOnly
+    };
+  });
   renderAdminVouchers();
 }
 
-async function loadAdminRecords() {
-  const [oSnap, cSnap] = await Promise.all([
-    db.collection("orders").orderBy("createdAt", "desc").limit(100).get(),
-    db.collection("customers").get()
-  ]);
-  orders = oSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-  customers = cSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-  document.getElementById("totalOrdCount").innerText = orders.length;
-  document.getElementById("totalCustCount").innerText = customers.length;
-  renderAdminCustomers(); renderAdminOrders();
+async function loadAdminRecords(showFeedback) {
+  const ordListEl = document.getElementById("adminOrdList");
+  const custListEl = document.getElementById("adminCustList");
+  if (showFeedback) {
+    ordListEl.innerHTML = `<p style="color:var(--p);font-size:12px;">Loading orders...</p>`;
+    custListEl.innerHTML = `<p style="color:var(--p);font-size:12px;">Loading users...</p>`;
+  }
+
+  let ordOk = false, custOk = false;
+  try {
+    const oSnap = await db.collection("orders").orderBy("createdAt", "desc").limit(150).get();
+    orders = oSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    document.getElementById("totalOrdCount").innerText = orders.length;
+    ordOk = true;
+  } catch (e) {
+    ordListEl.innerHTML = `<p style="color:var(--d);font-size:12px;">Slow network. Tap Refresh to reload orders.</p>`;
+  }
+
+  try {
+    const cSnap = await db.collection("customers").get();
+    customers = cSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    document.getElementById("totalCustCount").innerText = customers.length;
+    custOk = true;
+  } catch (e) {
+    custListEl.innerHTML = `<p style="color:var(--d);font-size:12px;">Slow network. Tap Refresh to reload users.</p>`;
+  }
+
+  if (ordOk) renderAdminOrders();
+  if (custOk) renderAdminCustomers();
 }
 
 function saveUnlockedCategories() {
@@ -605,8 +758,10 @@ async function loginCustomerByMobile(mob, isAuto) {
 
   activeMobile = mob;
   activeFilters = {};
+  newOnlyFilter = false;
   cart = {};
-  appliedVoucher = null;
+  appliedVouchers = [];
+  customerPastOrders = null;
   restoreUnlockedCategories(mob);
 
   if (isInstalledApp()) {
@@ -619,7 +774,7 @@ async function loginCustomerByMobile(mob, isAuto) {
     if (m) { unlockedCatIds.add(m.id); activeCategory = m; saveUnlockedCategories(); }
   }
   if (!activeCategory && categories.length) {
-    activeCategory = categories.find(c => unlockedCatIds.has(c.id)) || categories[0];
+    activeCategory = categories.find(c => unlockedCatIds.has(c.id) && !c.offSeason) || categories.find(c => !c.offSeason) || categories[0];
   }
 
   document.getElementById("custMobileOrder").value = mob;
@@ -628,7 +783,9 @@ async function loginCustomerByMobile(mob, isAuto) {
   document.getElementById("appSplash").classList.add("hidden");
   document.getElementById("loginView").classList.add("hidden");
   document.getElementById("customerView").classList.remove("hidden");
+  document.getElementById("myOrdersBtn").classList.remove("hidden");
   document.getElementById("logoutBtn").classList.remove("hidden");
+  setupCustomerNoticeUI();
   updateFilterBtnUI(); renderInlineAd(); renderCatPills(); renderCustomerProducts(); updateCartBar();
   return true;
 }
@@ -646,27 +803,93 @@ async function handleCustomerAuth() {
   finally { btn.innerText = authMode === "login" ? "Login" : "Sign Up & Open Catalog"; btn.disabled = false; }
 }
 
+// --- IN-APP NOTICE BELL & BANNER (0 EXTRA READS) ---
+function setupCustomerNoticeUI() {
+  const bellBtn = document.getElementById("noticeBellBtn");
+  const bellDot = document.getElementById("noticeBellDot");
+  const strip = document.getElementById("custNoticeStrip");
+  const txt = (appSettings.noticeText || "").trim();
+  if (!txt) {
+    bellBtn.classList.add("hidden");
+    strip.classList.add("hidden");
+    return;
+  }
+  bellBtn.classList.remove("hidden");
+  document.getElementById("noticeModalBody").innerText = txt;
+  const ver = String(appSettings.noticeUpdatedAt || txt.length);
+  const seenVer = localStorage.getItem("rt_notice_seen");
+  if (seenVer !== ver) {
+    bellDot.classList.remove("hidden");
+    document.getElementById("custNoticeText").innerText = "🔔 " + txt;
+    strip.classList.remove("hidden");
+  } else {
+    bellDot.classList.add("hidden");
+    strip.classList.add("hidden");
+  }
+}
+
+function dismissNoticeStrip() {
+  const txt = (appSettings.noticeText || "").trim();
+  const ver = String(appSettings.noticeUpdatedAt || txt.length);
+  localStorage.setItem("rt_notice_seen", ver);
+  document.getElementById("custNoticeStrip").classList.add("hidden");
+  document.getElementById("noticeBellDot").classList.add("hidden");
+}
+
+function openNoticeModal() {
+  dismissNoticeStrip();
+  document.getElementById("noticeModal").classList.remove("hidden");
+}
+
+// --- MULTIPLE OFFER BANNERS SLIDER ---
 function renderInlineAd() {
-  const box = document.getElementById("inlineAdBox"), img = document.getElementById("inlineAdImg"), strip = document.getElementById("inlineVoucherStrip");
-  if (!appSettings.adBanner && !vouchers.length) { box.classList.add("hidden"); return; }
+  const box = document.getElementById("inlineAdBox");
+  const slider = document.getElementById("adSlider");
+  const strip = document.getElementById("inlineVoucherStrip");
+  const banners = appSettings.adBanners || [];
+  if (!banners.length && !vouchers.length) { box.classList.add("hidden"); return; }
   box.classList.remove("hidden");
-  if (appSettings.adBanner) { img.src = appSettings.adBanner; img.classList.remove("hidden"); } else img.classList.add("hidden");
-  strip.innerHTML = vouchers.map(v => `<div class="v-pill">🏷️ ${v.code}: ${v.discount}% OFF (Min ₹${v.minOrder})</div>`).join("");
+  if (banners.length) {
+    slider.classList.remove("hidden");
+    slider.innerHTML = banners.map((src, i) => `
+      <div class="ad-slide">
+        <img src="${src}" onclick="zoomImage('${src}')" />
+        ${banners.length > 1 ? `<span class="ad-count-pill">${i + 1} / ${banners.length}</span>` : ''}
+      </div>`).join("");
+  } else {
+    slider.classList.add("hidden");
+    slider.innerHTML = "";
+  }
+  strip.innerHTML = vouchers.map(v => {
+    const dStr = v.discType === "flat" ? `Flat ₹${v.discount} OFF` : `${v.discount}% OFF`;
+    return `<div class="v-pill" onclick="openVoucherModal()">🏷️ ${escHtml(v.code)}: ${dStr} (Min ₹${v.minOrder})</div>`;
+  }).join("");
 }
 
 function renderCatPills() {
   document.getElementById("catPills").innerHTML = categories.map(c => {
     const isUnl = unlockedCatIds.has(c.id), isAct = activeCategory && c.id === activeCategory.id;
-    return `<button class="pill ${isAct ? 'active' : ''}" onclick="selectActiveCat('${c.id}')">${isUnl ? '🔓' : '🔒'} ${c.name}</button>`;
+    const icon = c.offSeason ? "⏸️" : (isUnl ? "🔓" : "🔒");
+    return `<button class="pill ${c.offSeason ? 'off-season' : ''} ${isAct ? 'active' : ''}" onclick="selectActiveCat('${c.id}')">${icon} ${escHtml(c.name)}</button>`;
   }).join("");
 }
 
 function selectActiveCat(id) {
   activeCategory = categories.find(c => c.id === id);
   activeFilters = {};
+  newOnlyFilter = false;
+  document.getElementById("newOnlyBtn").classList.remove("active");
   updateFilterBtnUI();
   renderCatPills();
   renderCustomerProducts();
+}
+
+function inquireOffSeasonWA() {
+  if (!appSettings.whatsapp) { alert("WhatsApp number not set."); return; }
+  const catName = activeCategory ? activeCategory.name : "Items";
+  const num = appSettings.whatsapp.replace(/\D/g, ""), waNum = num.length === 10 ? "91" + num : num;
+  const msg = `Hello ${appSettings.shopName}, please let me know when "${catName}" stock will be available.`;
+  window.open(`https://wa.me/${waNum}?text=${encodeURIComponent(msg)}`, "_blank");
 }
 
 function unlockCurrentCat() {
@@ -759,6 +982,17 @@ function updateFilterBtnUI() {
   }
 }
 
+function toggleNewOnlyFilter() {
+  newOnlyFilter = !newOnlyFilter;
+  document.getElementById("newOnlyBtn").classList.toggle("active", newOnlyFilter);
+  renderCustomerProducts();
+}
+
+function isProductNew(p) {
+  if (!p._createdMs) return false;
+  return (Date.now() - p._createdMs) <= 5 * 24 * 60 * 60 * 1000;
+}
+
 function openAdminPrompt() {
   const pin = prompt("Enter Admin PIN:");
   if (pin === null) return;
@@ -766,17 +1000,21 @@ function openAdminPrompt() {
     document.getElementById("hdrSub").innerText = "Admin Panel";
     document.getElementById("appSplash").classList.add("hidden");
     document.getElementById("loginView").classList.add("hidden");
+    document.getElementById("customerView").classList.add("hidden");
+    document.getElementById("myOrdersBtn").classList.add("hidden");
+    document.getElementById("noticeBellBtn").classList.add("hidden");
     document.getElementById("adminView").classList.remove("hidden");
     document.getElementById("logoutBtn").classList.remove("hidden");
-    loadAdminRecords();
+    loadAdminRecords(false);
   } else alert("Incorrect Admin PIN!");
 }
 
 function logout() {
   localStorage.removeItem("rt_app_mobile");
-  unlockedCatIds = new Set(); activeCategory = null; activeFilters = {}; activeMobile = ""; cart = {}; appliedVoucher = null;
+  unlockedCatIds = new Set(); activeCategory = null; activeFilters = {}; newOnlyFilter = false;
+  activeMobile = ""; cart = {}; appliedVouchers = []; customerPastOrders = null;
   document.getElementById("hdrSub").innerText = "Wholesale Digital Catalog";
-  ["appSplash","customerView","adminView","cartBar","logoutBtn"].forEach(id => document.getElementById(id).classList.add("hidden"));
+  ["appSplash","customerView","adminView","cartBar","logoutBtn","myOrdersBtn","noticeBellBtn"].forEach(id => document.getElementById(id).classList.add("hidden"));
   document.getElementById("loginView").classList.remove("hidden");
 }
 
@@ -793,6 +1031,17 @@ function getProductFilterValues(p) {
 
 function renderCustomerProducts() {
   if (!activeCategory) return;
+  const offBox = document.getElementById("offSeasonBox");
+  const activeSec = document.getElementById("activeCatCatalogSection");
+  if (activeCategory.offSeason) {
+    document.getElementById("offSeasonTitle").innerText = `⏸️ ${activeCategory.name} — Currently Off-Season`;
+    offBox.classList.remove("hidden");
+    activeSec.classList.add("hidden");
+    return;
+  }
+  offBox.classList.add("hidden");
+  activeSec.classList.remove("hidden");
+
   const isUnlocked = unlockedCatIds.has(activeCategory.id);
   document.getElementById("lockBanner").classList.toggle("hidden", isUnlocked);
   const q = document.getElementById("searchInput").value.trim().toLowerCase();
@@ -800,6 +1049,7 @@ function renderCustomerProducts() {
 
   const list = products.filter(p => {
     if (p.categoryId !== activeCategory.id) return false;
+    if (newOnlyFilter && !isProductNew(p)) return false;
     for (const [grp, reqVal] of filterEntries) {
       const pVal = (p.filters && p.filters[grp]) ? p.filters[grp] : (p.subCategory || "");
       if (pVal.toLowerCase() !== reqVal.toLowerCase()) return false;
@@ -819,10 +1069,11 @@ function renderCustomerProducts() {
     const qty = cart[p.id] || 0, moq = Number(p.moq) || 1, step = stepStrict ? moq : 1;
     const imgSrc = p.image || "https://via.placeholder.com/300x300?text=No+Photo";
     const fVals = getProductFilterValues(p);
+    const newBadge = isProductNew(p) ? `<span class="new-ribbon">NEW</span>` : "";
     const subTagHtml = fVals.length ? `<div class="prod-subtags">${fVals.map(v => `<span class="prod-subtag">${escHtml(v)}</span>`).join("")}</div>` : "";
     const descHtml = p.description ? `<div class="prod-desc">${escHtml(p.description)}</div>` : "";
-    if (!isUnlocked) return `<div class="prod-card"><img src="${imgSrc}" class="prod-img" onclick="zoomImage('${imgSrc}')" /><div class="prod-body"><div><div class="prod-title">${escHtml(p.name)}</div>${subTagHtml}${descHtml}</div><div class="rate-locked" onclick="unlockCurrentCat()">🔒 Rate Locked<br><small>Tap to unlock</small></div></div></div>`;
-    return `<div class="prod-card"><img src="${imgSrc}" class="prod-img" onclick="zoomImage('${imgSrc}')" /><div class="prod-body">
+    if (!isUnlocked) return `<div class="prod-card">${newBadge}<img src="${imgSrc}" class="prod-img" onclick="zoomImage('${imgSrc}')" /><div class="prod-body"><div><div class="prod-title">${escHtml(p.name)}</div>${subTagHtml}${descHtml}</div><div class="rate-locked" onclick="unlockCurrentCat()">🔒 Rate Locked<br><small>Tap to unlock</small></div></div></div>`;
+    return `<div class="prod-card">${newBadge}<img src="${imgSrc}" class="prod-img" onclick="zoomImage('${imgSrc}')" /><div class="prod-body">
       <div><div class="prod-title">${escHtml(p.name)}</div>${subTagHtml}${descHtml}<div class="prod-price">₹${p.price} <span style="font-size:11px;font-weight:400;color:#666;">/ pc</span></div>
       <div class="prod-moq">${stepStrict ? '1 Set = ' : 'Min: '}${moq} pcs</div></div>
       ${p.outOfStock ? `<button class="oos-btn" disabled>Out of Stock</button>` :
@@ -840,13 +1091,86 @@ function manualQty(id, rv, moq) {
   renderCustomerProducts(); updateCartBar();
 }
 
+function clearCustomerCart() {
+  if (!Object.keys(cart).length) return;
+  if (!confirm("Clear all selected items from cart?")) return;
+  cart = {};
+  appliedVouchers = [];
+  closeCartModal();
+  renderCustomerProducts();
+  updateCartBar();
+  showToast("✓ Cart cleared");
+}
+
+// --- MULTI-VOUCHER VALIDATION & CALCULATION ---
+async function ensureCustomerPastOrders() {
+  if (customerPastOrders !== null) return customerPastOrders;
+  if (!activeMobile) { customerPastOrders = []; return []; }
+  try {
+    const snap = await db.collection("orders").where("mobile", "==", activeMobile).get();
+    customerPastOrders = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    customerPastOrders.sort((a, b) => {
+      const ta = a.createdAt && a.createdAt.toMillis ? a.createdAt.toMillis() : 0;
+      const tb = b.createdAt && b.createdAt.toMillis ? b.createdAt.toMillis() : 0;
+      return tb - ta;
+    });
+  } catch (e) {
+    customerPastOrders = [];
+  }
+  return customerPastOrders;
+}
+
+function getVoucherUsedCount(code) {
+  if (!customerPastOrders) return 0;
+  const target = (code || "").toUpperCase();
+  let count = 0;
+  customerPastOrders.forEach(o => {
+    if (Array.isArray(o.voucherCodes)) {
+      if (o.voucherCodes.some(c => String(c).toUpperCase() === target)) count++;
+    } else if (o.voucherCode) {
+      const parts = String(o.voucherCode).split(",").map(s => s.trim().toUpperCase());
+      if (parts.includes(target)) count++;
+    }
+  });
+  return count;
+}
+
+function checkVoucherEligibility(v, sub) {
+  if (sub < Number(v.minOrder)) {
+    return { ok: false, reason: `Minimum order of ₹${v.minOrder} required.` };
+  }
+  if (v.firstTimeOnly && customerPastOrders && customerPastOrders.length > 0) {
+    return { ok: false, reason: `Valid for First-Time Customers only.` };
+  }
+  if (v.maxUses > 0 && customerPastOrders) {
+    const used = getVoucherUsedCount(v.code);
+    if (used >= v.maxUses) {
+      return { ok: false, reason: `Usage limit (${v.maxUses}x) reached for your number.` };
+    }
+  }
+  return { ok: true, reason: "" };
+}
+
+function calcSingleVoucherDiscount(v, sub) {
+  if (v.discType === "flat") return Math.min(sub, Number(v.discount) || 0);
+  return Math.round(sub * (Number(v.discount) || 0) / 100);
+}
+
 function getCartTotals() {
   let pcs = 0, sub = 0;
   for (const id in cart) { const p = products.find(x => x.id === id); if (p) { pcs += cart[id]; sub += cart[id] * Number(p.price); } }
-  let disc = 0;
-  if (appliedVoucher && sub >= Number(appliedVoucher.minOrder)) disc = Math.round(sub * Number(appliedVoucher.discount) / 100);
-  else if (appliedVoucher) appliedVoucher = null;
-  return { pcs, sub, disc, total: Math.max(0, sub - disc) };
+  let validList = [];
+  let totalDisc = 0;
+  appliedVouchers.forEach(v => {
+    const check = checkVoucherEligibility(v, sub);
+    if (check.ok) {
+      validList.push(v);
+      totalDisc += calcSingleVoucherDiscount(v, sub);
+    }
+  });
+  appliedVouchers = validList;
+  totalDisc = Math.min(sub, totalDisc);
+  return { pcs, sub, disc: totalDisc, total: Math.max(0, sub - totalDisc) };
 }
 
 function updateCartBar() {
@@ -859,9 +1183,10 @@ function openCartModal() {
   let html = "";
   for (const id in cart) {
     const p = products.find(x => x.id === id);
-    if (p) html += `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f3f4f6;"><span>${p.name} <small style="color:#666;">[${p.categoryName}]</small><br>${cart[id]} pcs x ₹${p.price}</span><strong>₹${cart[id]*Number(p.price)}</strong></div>`;
+    if (p) html += `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f3f4f6;"><span>${escHtml(p.name)} <small style="color:#666;">[${escHtml(p.categoryName)}]</small><br>${cart[id]} pcs x ₹${p.price}</span><strong>₹${cart[id]*Number(p.price)}</strong></div>`;
   }
   document.getElementById("cartItemsList").innerHTML = html;
+  document.getElementById("voucherMsg").innerText = "";
   refreshCartModalTotals();
   if (activeMobile) document.getElementById("custMobileOrder").value = activeMobile;
   document.getElementById("cartModal").classList.remove("hidden");
@@ -872,51 +1197,203 @@ function refreshCartModalTotals() {
   document.getElementById("modalSub").innerText = sub;
   document.getElementById("modalPcs").innerText = pcs;
   document.getElementById("modalTotal").innerText = total;
+
+  const chipsBox = document.getElementById("appliedVouchersBox");
+  chipsBox.innerHTML = appliedVouchers.map(v => {
+    const dAmt = calcSingleVoucherDiscount(v, sub);
+    return `<span class="v-chip-applied">🏷️ ${escHtml(v.code)} (-₹${dAmt}) <button type="button" onclick="removeAppliedVoucher('${escHtml(v.code)}')">×</button></span>`;
+  }).join("");
+
   const dr = document.getElementById("modalDiscRow");
-  if (disc > 0) { document.getElementById("modalDiscAmt").innerText = `${disc} (${appliedVoucher.code} - ${appliedVoucher.discount}%)`; dr.classList.remove("hidden"); }
-  else dr.classList.add("hidden");
+  if (disc > 0) {
+    document.getElementById("modalDiscAmt").innerText = `${disc}`;
+    dr.classList.remove("hidden");
+  } else dr.classList.add("hidden");
 }
 
-function applyCustomerVoucher() {
+function removeAppliedVoucher(code) {
+  appliedVouchers = appliedVouchers.filter(v => v.code !== code);
+  refreshCartModalTotals();
+  updateCartBar();
+}
+
+async function applyCustomerVoucher() {
   const code = document.getElementById("custVoucherInput").value.trim().toUpperCase(), msg = document.getElementById("voucherMsg");
-  const { sub } = getCartTotals(), v = vouchers.find(x => (x.code || "").toUpperCase() === code);
-  if (!v) { appliedVoucher = null; msg.style.color = "var(--d)"; msg.innerText = "Invalid Voucher Code!"; refreshCartModalTotals(); return; }
-  if (sub < Number(v.minOrder)) { appliedVoucher = null; msg.style.color = "var(--d)"; msg.innerText = `Minimum order of ₹${v.minOrder} required.`; refreshCartModalTotals(); return; }
-  appliedVoucher = v; msg.style.color = "var(--s)"; msg.innerText = `Voucher ${v.code} (${v.discount}% OFF) applied!`;
+  if (!code) return;
+  const v = vouchers.find(x => (x.code || "").toUpperCase() === code);
+  if (!v) { msg.style.color = "var(--d)"; msg.innerText = "Invalid Voucher Code!"; return; }
+  if (appliedVouchers.some(x => x.code.toUpperCase() === code)) {
+    msg.style.color = "var(--p)"; msg.innerText = `Voucher ${v.code} is already applied.`; return;
+  }
+  if (v.firstTimeOnly || v.maxUses > 0) {
+    msg.style.color = "var(--p)"; msg.innerText = "Checking eligibility...";
+    await ensureCustomerPastOrders();
+  }
+  const { sub } = getCartTotals();
+  const check = checkVoucherEligibility(v, sub);
+  if (!check.ok) { msg.style.color = "var(--d)"; msg.innerText = check.reason; return; }
+
+  appliedVouchers.push(v);
+  document.getElementById("custVoucherInput").value = "";
+  msg.style.color = "var(--s)"; msg.innerText = `Voucher ${v.code} applied!`;
   refreshCartModalTotals(); updateCartBar();
 }
 
+async function openVoucherModal() {
+  if (!vouchers.length) { alert("No active discount vouchers available right now."); return; }
+  if (vouchers.some(v => v.firstTimeOnly || v.maxUses > 0) && customerPastOrders === null) {
+    await ensureCustomerPastOrders();
+  }
+  renderVoucherOffersList();
+  document.getElementById("voucherViewModal").classList.remove("hidden");
+}
+
+function renderVoucherOffersList() {
+  const { sub } = getCartTotals();
+  const listEl = document.getElementById("voucherOffersList");
+  listEl.innerHTML = vouchers.map(v => {
+    const isSel = appliedVouchers.some(x => x.code === v.code);
+    const check = checkVoucherEligibility(v, sub);
+    const dStr = v.discType === "flat" ? `Flat ₹${v.discount} OFF` : `${v.discount}% OFF`;
+    const tags = [
+      `Min ₹${v.minOrder}`,
+      v.maxUses > 0 ? `${v.maxUses}x / User` : "Unlimited",
+      v.firstTimeOnly ? "1st Order Only" : ""
+    ].filter(Boolean).join(" • ");
+    return `<div class="v-offer-card ${isSel ? 'selected' : ''}">
+      <div style="flex:1;">
+        <div style="font-weight:800;font-size:14px;color:var(--p);">${escHtml(v.code)} <span class="badge badge-grn">${dStr}</span></div>
+        <div style="font-size:11px;color:#4b5563;margin-top:2px;">${tags}</div>
+        ${!check.ok && !isSel ? `<div style="font-size:11px;color:var(--d);margin-top:2px;">${check.reason}</div>` : ''}
+      </div>
+      <button type="button" class="btn-sm" style="background:${isSel ? 'var(--s)' : (check.ok ? 'var(--p)' : '#9ca3af')};padding:7px 11px;" ${!isSel && !check.ok ? 'disabled' : ''} onclick="toggleVoucherFromModal('${escHtml(v.code)}')">
+        ${isSel ? '✓ Selected' : 'Select'}
+      </button>
+    </div>`;
+  }).join("");
+}
+
+function toggleVoucherFromModal(code) {
+  const idx = appliedVouchers.findIndex(v => v.code === code);
+  if (idx !== -1) {
+    appliedVouchers.splice(idx, 1);
+  } else {
+    const v = vouchers.find(x => x.code === code);
+    const { sub } = getCartTotals();
+    if (v && checkVoucherEligibility(v, sub).ok) appliedVouchers.push(v);
+  }
+  refreshCartModalTotals();
+  updateCartBar();
+  renderVoucherOffersList();
+}
+
 function closeCartModal() { document.getElementById("cartModal").classList.add("hidden"); }
+
+// --- CUSTOMER MY ORDERS & 1-TAP REPEAT ORDER ---
+async function openMyOrdersModal() {
+  document.getElementById("myOrdersModal").classList.remove("hidden");
+  await loadCustomerPastOrders(false);
+}
+
+async function loadCustomerPastOrders(forceRefresh) {
+  const box = document.getElementById("myOrdersList");
+  box.innerHTML = `<p style="color:var(--p);font-size:13px;text-align:center;padding:16px 0;">Loading your orders...</p>`;
+  if (forceRefresh) customerPastOrders = null;
+  const list = await ensureCustomerPastOrders();
+  if (!list.length) {
+    box.innerHTML = `<p style="color:var(--m);font-size:13px;text-align:center;padding:16px 0;">You have not placed any orders yet.</p>`;
+    return;
+  }
+  box.innerHTML = list.map((o, idx) => {
+    const dt = o.createdAt && o.createdAt.toDate ? o.createdAt.toDate().toLocaleDateString("en-IN") : "";
+    const st = o.status || "New";
+    const stCls = st === "Completed" ? "badge-grn" : (st === "Accepted" ? "badge-org" : "");
+    const itemsTxt = (o.items || []).map(i => `${escHtml(i.name)} (${i.qty} pcs × ₹${i.price})`).join(", ");
+    return `<div class="ord-card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+        <strong>${dt || 'Order'}</strong>
+        <span class="badge ${stCls}">${escHtml(st)}</span>
+      </div>
+      <div style="color:#374151;font-size:11px;line-height:1.4;margin-bottom:6px;">${itemsTxt}</div>
+      ${o.remark ? `<div style="font-size:11px;color:#4b5563;margin-bottom:4px;"><strong>Remark:</strong> ${escHtml(o.remark)}</div>` : ''}
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
+        <span style="font-weight:700;color:var(--p);">Total: ₹${o.totalAmt} (${o.totalPcs} pcs)</span>
+        <button type="button" class="btn-sm" style="background:var(--s);" onclick="repeatCustomerOrder(${idx})">🔄 Repeat Order</button>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function repeatCustomerOrder(idx) {
+  const o = customerPastOrders[idx];
+  if (!o || !Array.isArray(o.items)) return;
+  let added = 0, skipped = 0;
+  const stepStrict = appSettings.strictSet !== false;
+  o.items.forEach(it => {
+    let p = it.prodId ? products.find(x => x.id === it.prodId) : products.find(x => x.name === it.name);
+    if (!p || p.outOfStock) { skipped++; return; }
+    const cat = categories.find(c => c.id === p.categoryId);
+    if (cat && cat.offSeason) { skipped++; return; }
+    const moq = Number(p.moq) || 1;
+    const rawQ = Number(it.qty) || moq;
+    cart[p.id] = stepStrict ? Math.max(moq, Math.ceil(rawQ / moq) * moq) : Math.max(moq, rawQ);
+    added++;
+  });
+  document.getElementById("myOrdersModal").classList.add("hidden");
+  renderCustomerProducts();
+  updateCartBar();
+  if (added > 0) {
+    showToast(skipped ? `✓ ${added} items added (${skipped} unavailable)` : `✓ ${added} items added to cart!`);
+  } else {
+    alert("Items from this order are currently out of stock or off-season.");
+  }
+}
 
 async function sendCustomerOrder() {
   if (!appSettings.whatsapp) { alert("Admin WhatsApp number is not set."); return; }
   const mob = document.getElementById("custMobileOrder").value.replace(/\D/g, "");
   if (mob.length !== 10) { alert("10-digit mobile number is required!"); return; }
   const cName = document.getElementById("custName").value.trim() || "Customer";
-  const btn = document.getElementById("waSendBtn"); btn.innerText = "Placing Order..."; btn.disabled = true;
+  const remark = document.getElementById("custRemark").value.trim();
 
   const { pcs, sub, disc, total } = getCartTotals();
+  const minOrd = Number(appSettings.minOrderAmt) || 0;
+  if (minOrd > 0 && sub < minOrd) {
+    alert(`Minimum order amount is ₹${minOrd}. Your current subtotal is ₹${sub}.`);
+    return;
+  }
+
+  const btn = document.getElementById("waSendBtn"); btn.innerText = "Placing Order..."; btn.disabled = true;
+
   let itemsArr = [];
   for (const id in cart) {
     const p = products.find(x => x.id === id);
     if (p) itemsArr.push({ prodId: p.id, name: p.name, category: p.categoryName, qty: cart[id], price: Number(p.price), sub: cart[id] * Number(p.price) });
   }
 
+  const vCodes = appliedVouchers.map(v => v.code);
+  const newOrdData = {
+    customerName: cName, mobile: mob, remark, status: "New", items: itemsArr, totalPcs: pcs,
+    subtotal: sub, discountAmt: disc,
+    discountPct: appliedVouchers.length === 1 && appliedVouchers[0].discType === "pct" ? Number(appliedVouchers[0].discount) : 0,
+    voucherCodes: vCodes, voucherCode: vCodes.join(", "), totalAmt: total,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  };
+
   try {
-    await Promise.all([
-      db.collection("orders").add({
-        customerName: cName, mobile: mob, items: itemsArr, totalPcs: pcs,
-        subtotal: sub, discountAmt: disc, discountPct: appliedVoucher ? Number(appliedVoucher.discount) : 0,
-        voucherCode: appliedVoucher ? appliedVoucher.code : "", totalAmt: total,
-        createdAt: firebase.firestore.FieldValue.serverTimestamp()
-      }),
+    const [oRef] = await Promise.all([
+      db.collection("orders").add(newOrdData),
       db.collection("customers").doc(mob).set({ mobile: mob, name: cName, lastSeen: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true })
     ]);
+    if (customerPastOrders !== null) {
+      customerPastOrders.unshift({ id: oRef.id, ...newOrdData, createdAt: { toDate: () => new Date(), toMillis: () => Date.now() } });
+    }
   } catch (e) { console.error(e); }
 
+  // Keep WhatsApp message format plain (Consignee & Mobile only) as requested
   const plainMsg = `Hello ${appSettings.shopName},\nI have placed a new order. Please confirm my order.\n\nConsignee: ${cName}\nMobile: ${mob}`;
 
-  cart = {}; appliedVoucher = null; document.getElementById("custVoucherInput").value = ""; document.getElementById("voucherMsg").innerText = "";
+  cart = {}; appliedVouchers = []; document.getElementById("custVoucherInput").value = ""; document.getElementById("voucherMsg").innerText = ""; document.getElementById("custRemark").value = "";
   closeCartModal(); renderCustomerProducts(); updateCartBar();
   btn.innerText = "Place Order & Notify on WhatsApp"; btn.disabled = false;
 
@@ -931,18 +1408,27 @@ function getItemImg(it) {
   return (p && p.image) ? p.image : "https://via.placeholder.com/60?text=No+Img";
 }
 
-// --- ADMIN ORDER EDIT & PDF SHARE ---
+// --- ADMIN ORDER STATUS, EDIT & PDF SHARE ---
+async function changeOrderStatus(idx, newStatus) {
+  const o = orders[idx];
+  if (!o) return;
+  await db.collection("orders").doc(o.id).update({ status: newStatus });
+  orders[idx].status = newStatus;
+  renderAdminOrders();
+  showToast(`✓ Order marked ${newStatus}`);
+}
+
 function openAdminOrderEdit(idx) {
   editingOrderIdx = idx;
   const o = orders[idx];
-  document.getElementById("aoHeader").innerHTML = `<strong>Consignee:</strong> ${o.customerName} (${o.mobile})`;
+  document.getElementById("aoHeader").innerHTML = `<strong>Consignee:</strong> ${escHtml(o.customerName)} (${o.mobile})${o.remark ? `<br><strong>Remark:</strong> ${escHtml(o.remark)}` : ''}`;
   document.getElementById("aoDiscPct").value = o.discountPct || 0;
-  document.getElementById("aoDiscFlat").value = o.discountFlat || 0;
+  document.getElementById("aoDiscFlat").value = o.discountFlat || (o.discountPct ? 0 : (o.discountAmt || 0));
   document.getElementById("aoItemsBox").innerHTML = (o.items || []).map((it, i) => {
     const imgSrc = getItemImg(it);
     return `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid #eee;font-size:12px;">
       <img src="${imgSrc}" class="ord-thumb" onclick="zoomImage('${imgSrc}')" />
-      <div style="flex:1;"><strong>${it.name}</strong><br>${it.qty} pcs</div>
+      <div style="flex:1;"><strong>${escHtml(it.name)}</strong><br>${it.qty} pcs</div>
       <div style="width:80px;"><label style="font-size:10px;">Rate (₹)</label><input type="number" id="aoRate_${i}" value="${it.price}" style="margin:0;padding:5px;" oninput="recalcAdminOrder()" /></div>
     </div>`;
   }).join("");
@@ -991,11 +1477,17 @@ function buildPDFDoc(ord) {
   doc.text("Consignor: " + (appSettings.shopName || "Raza Traders"), 14, 28);
   doc.text("Consignee: " + ord.customerName + " (" + ord.mobile + ")", 14, 35);
   doc.text("Date: " + new Date().toLocaleDateString("en-IN"), 150, 28);
-  doc.line(14, 40, 196, 40);
+  let topY = 40;
+  if (ord.remark) {
+    doc.setFontSize(10);
+    doc.text("Remark: " + String(ord.remark).slice(0, 80), 14, 42);
+    topY = 46;
+  }
+  doc.line(14, topY, 196, topY);
   doc.setFontSize(10);
-  doc.text("#", 14, 47); doc.text("Item (Category)", 22, 47); doc.text("Qty", 125, 47); doc.text("Rate", 145, 47); doc.text("Amount", 170, 47);
-  doc.line(14, 50, 196, 50);
-  let y = 57;
+  doc.text("#", 14, topY + 7); doc.text("Item (Category)", 22, topY + 7); doc.text("Qty", 125, topY + 7); doc.text("Rate", 145, topY + 7); doc.text("Amount", 170, topY + 7);
+  doc.line(14, topY + 10, 196, topY + 10);
+  let y = topY + 17;
   (ord.items || []).forEach((it, i) => {
     if (y > 265) { doc.addPage(); y = 20; }
     doc.text(String(i + 1), 14, y);
@@ -1011,7 +1503,7 @@ function buildPDFDoc(ord) {
   doc.text(`Total Pieces: ${ord.totalPcs}`, 14, y);
   doc.text(`Subtotal: Rs.${sub}`, 140, y); y += 7;
   if (disc > 0) {
-    const lbl = ord.discountPct ? `Discount (${ord.discountPct}%):` : "Discount:";
+    const lbl = ord.voucherCode ? `Discount (${ord.voucherCode}):` : (ord.discountPct ? `Discount (${ord.discountPct}%):` : "Discount:");
     doc.text(`${lbl} -Rs.${disc}`, 140, y); y += 7;
   }
   doc.setFontSize(13);
@@ -1048,8 +1540,8 @@ function switchTab(tab) {
     document.getElementById("admin" + cap + "Tab").classList.toggle("hidden", t !== tab);
     document.getElementById("tab" + cap + "Btn").classList.toggle("active", t === tab);
   });
-  if (tab === "ord" || tab === "usr") loadAdminRecords();
-  if (tab === "off") loadVouchers();
+  if (tab === "ord" || tab === "usr") loadAdminRecords(true);
+  if (tab === "off") { loadVouchers(); renderAdminBanners(); }
 }
 
 function calcSalePrice() {
@@ -1061,7 +1553,7 @@ function calcSalePrice() {
   }
 }
 
-function compressFileToBase64(file, maxW) {
+function compressFileToBase64(file, maxW, quality) {
   return new Promise((resolve) => {
     const r = new FileReader();
     r.onload = ev => {
@@ -1070,7 +1562,7 @@ function compressFileToBase64(file, maxW) {
         const c = document.createElement("canvas"), s = Math.min(1, maxW / img.width);
         c.width = img.width * s; c.height = img.height * s;
         c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
-        resolve(c.toDataURL("image/jpeg", 0.7));
+        resolve(c.toDataURL("image/jpeg", quality || 0.7));
       };
       img.src = ev.target.result;
     };
@@ -1080,9 +1572,8 @@ function compressFileToBase64(file, maxW) {
 
 async function compressImg(e, target) {
   const file = e.target.files[0]; if (!file) return;
-  const b64 = await compressFileToBase64(file, target === "ad" ? 700 : 500);
+  const b64 = await compressFileToBase64(file, 500, 0.7);
   if (target === "logo") { upLogoImg = b64; const p = document.getElementById("logoPreview"); p.src = b64; p.classList.remove("hidden"); }
-  if (target === "ad") { upAdImg = b64; const p = document.getElementById("adPreview"); p.src = b64; p.classList.remove("hidden"); }
 }
 
 // --- MULTI-PHOTO QUEUE FOR PRODUCTS ---
@@ -1093,7 +1584,7 @@ async function handleProdFiles(e) {
   if (isEditing) {
     photoQueue = []; queueIdx = 0;
     document.getElementById("photoQueueBar").classList.add("hidden");
-    upProdImg = await compressFileToBase64(files[0], 500);
+    upProdImg = await compressFileToBase64(files[0], 500, 0.7);
     const p = document.getElementById("imgPreview"); p.src = upProdImg; p.classList.remove("hidden");
     return;
   }
@@ -1114,7 +1605,7 @@ async function loadQueueItem() {
   } else {
     bar.classList.add("hidden");
   }
-  upProdImg = await compressFileToBase64(photoQueue[queueIdx], 500);
+  upProdImg = await compressFileToBase64(photoQueue[queueIdx], 500, 0.7);
   const p = document.getElementById("imgPreview"); p.src = upProdImg; p.classList.remove("hidden");
   document.getElementById("prodName").focus();
 }
@@ -1157,11 +1648,18 @@ async function saveProduct() {
   const filters = getCurrentProdFilters();
   const subCategory = Object.values(filters).join(", ");
   const buyRate = Number(document.getElementById("prodBuyRate").value) || 0;
-  const marginPct = Number(document.getElementById("prodMargin").value) || 0;
+  const marginVal = document.getElementById("prodMargin").value;
+  const marginPct = Number(marginVal) || 0;
   const price = Number(document.getElementById("prodPrice").value);
-  const moq = Number(document.getElementById("prodMoq").value);
+  const moqVal = document.getElementById("prodMoq").value;
+  const moq = Number(moqVal);
   const editId = document.getElementById("editProdId").value;
   if (!name || !categoryId || !price || !moq) { alert("Name, Category, Sale Rate and MOQ are required!"); return; }
+
+  // Remember sticky Margin & MOQ
+  stickyMargin = marginVal !== "" ? marginVal : "30";
+  stickyMoq = moqVal !== "" ? moqVal : "6";
+
   const btn = document.getElementById("saveProdBtn"); btn.innerText = "Saving..."; btn.disabled = true;
   try {
     const catObj = categories.find(c => c.id === categoryId);
@@ -1172,7 +1670,6 @@ async function saveProduct() {
       const idx = products.findIndex(x => x.id === editId);
       if (idx !== -1) products[idx] = { ...products[idx], ...data };
       sortProductsList();
-      document.getElementById("totalProdCount").innerText = products.length;
       renderAdminProducts();
       resetProdForm(true);
       showToast("✓ Product updated!");
@@ -1181,9 +1678,8 @@ async function saveProduct() {
       data.sortOrder = topOrd;
       data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
       const docRef = await db.collection("products").add(data);
-      products.unshift({ id: docRef.id, ...data, _order: topOrd, createdAt: new Date() });
+      products.unshift({ id: docRef.id, ...data, _order: topOrd, _createdMs: Date.now() });
       sortProductsList();
-      document.getElementById("totalProdCount").innerText = products.length;
       renderAdminProducts();
       resetProdForm(false);
 
@@ -1249,10 +1745,9 @@ async function toggleStock(id, curOos) {
   renderAdminProducts();
 }
 
-function editProduct(id) {
-  const p = products.find(x => x.id === id); if (!p) return;
+function fillProdFormFromObj(p, isEdit) {
   clearPhotoQueue();
-  document.getElementById("editProdId").value = p.id;
+  document.getElementById("editProdId").value = isEdit ? p.id : "";
   document.getElementById("prodName").value = p.name;
   document.getElementById("prodDesc").value = p.description || "";
   document.getElementById("prodCat").value = p.categoryId;
@@ -1264,20 +1759,37 @@ function editProduct(id) {
   }
   renderProdFilterInputs(existingFilters);
   document.getElementById("prodBuyRate").value = p.buyRate || "";
-  document.getElementById("prodMargin").value = p.marginPct !== undefined ? p.marginPct : 30;
+  document.getElementById("prodMargin").value = p.marginPct !== undefined ? p.marginPct : stickyMargin;
   document.getElementById("prodPrice").value = p.price;
-  document.getElementById("prodMoq").value = p.moq || 6;
-  upProdImg = p.image || "";
-  if (upProdImg) { const pr = document.getElementById("imgPreview"); pr.src = upProdImg; pr.classList.remove("hidden"); }
-  document.getElementById("prodFormTitle").innerText = "Edit Product";
-  document.getElementById("cancelEditBtn").classList.remove("hidden");
+  document.getElementById("prodMoq").value = p.moq || stickyMoq;
+  if (isEdit) {
+    upProdImg = p.image || "";
+    if (upProdImg) { const pr = document.getElementById("imgPreview"); pr.src = upProdImg; pr.classList.remove("hidden"); }
+    document.getElementById("prodFormTitle").innerText = "Edit Product";
+    document.getElementById("cancelEditBtn").classList.remove("hidden");
+  } else {
+    document.getElementById("prodFormTitle").innerText = "Add New Product (Copied)";
+    document.getElementById("cancelEditBtn").classList.remove("hidden");
+  }
   window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function editProduct(id) {
+  const p = products.find(x => x.id === id);
+  if (p) fillProdFormFromObj(p, true);
+}
+
+function copyProduct(id) {
+  const p = products.find(x => x.id === id);
+  if (!p) return;
+  fillProdFormFromObj(p, false);
+  showToast("✓ Copied! Select photo & save");
 }
 
 function resetProdForm(clearAll) {
   ["editProdId","prodName","prodDesc","prodBuyRate","prodPrice"].forEach(id => document.getElementById(id).value = "");
-  document.getElementById("prodMargin").value = "30";
-  document.getElementById("prodMoq").value = "6";
+  document.getElementById("prodMargin").value = stickyMargin;
+  document.getElementById("prodMoq").value = stickyMoq;
   document.getElementById("prodFormTitle").innerText = "Add New Product";
   document.getElementById("cancelEditBtn").classList.add("hidden");
   if (clearAll) {
@@ -1290,15 +1802,43 @@ async function deleteProduct(id) {
   if (confirm("Delete this product?")) {
     await db.collection("products").doc(id).delete();
     products = products.filter(p => p.id !== id);
-    document.getElementById("totalProdCount").innerText = products.length;
     renderAdminProducts();
     showToast("✓ Deleted");
   }
 }
 
+function toggleAdminOosFilter() {
+  adminOosOnly = !adminOosOnly;
+  const btn = document.getElementById("adminOosFilterBtn");
+  btn.style.background = adminOosOnly ? "var(--d)" : "#6b7280";
+  btn.innerText = adminOosOnly ? "Showing OOS Only" : "Out of Stock Only";
+  renderAdminProducts();
+}
+
 function renderAdminProducts() {
-  const f = document.getElementById("adminFilterCat").value;
-  const list = f === "ALL" ? products : products.filter(p => p.categoryId === f);
+  const f = document.getElementById("adminFilterCat").value || "ALL";
+  const q = (document.getElementById("adminSearchProd").value || "").trim().toLowerCase();
+  const catFiltered = f === "ALL" ? products : products.filter(p => p.categoryId === f);
+
+  // Update category-wise exact product count header
+  const countTitle = document.getElementById("adminProdCountTitle");
+  if (f === "ALL") {
+    countTitle.innerText = `All Products (${products.length})`;
+  } else {
+    const catObj = categories.find(c => c.id === f);
+    const cName = catObj ? catObj.name : "Category";
+    countTitle.innerText = `${cName} Products (${catFiltered.length} / Total ${products.length})`;
+  }
+
+  let list = catFiltered;
+  if (adminOosOnly) list = list.filter(p => !!p.outOfStock);
+  if (q) {
+    list = list.filter(p => {
+      const fStr = getProductFilterValues(p).join(" ").toLowerCase();
+      return p.name.toLowerCase().includes(q) || (p.description || "").toLowerCase().includes(q) || fStr.includes(q);
+    });
+  }
+
   document.getElementById("adminProdList").innerHTML = list.length ? list.map((p, idx) => {
     const fVals = getProductFilterValues(p);
     const fBadges = fVals.map(v => `<span class="badge badge-pur">${escHtml(v)}</span>`).join(" ");
@@ -1320,6 +1860,7 @@ function renderAdminProducts() {
           <button class="btn-sm" style="background:#4b5563;" ${idx === list.length - 1 ? 'disabled' : ''} onclick="moveProductStep('${p.id}', 1)">↓</button>
         </div>
         <div style="display:flex;gap:4px;">
+          <button class="btn-sm" style="background:#6366f1;" onclick="copyProduct('${p.id}')">Copy</button>
           <button class="btn-sm" style="background:${p.outOfStock ? 'var(--s)' : '#f59e0b'};" onclick="toggleStock('${p.id}', ${!!p.outOfStock})">${p.outOfStock ? 'In' : 'Out'}</button>
           <button class="btn-sm" style="background:var(--p);" onclick="editProduct('${p.id}')">Edit</button>
           <button class="btn-sm" style="background:var(--d);" onclick="deleteProduct('${p.id}')">X</button>
@@ -1329,12 +1870,22 @@ function renderAdminProducts() {
   }).join("") : `<p style="color:var(--m);font-size:13px;">No products found.</p>`;
 }
 
+// --- CATEGORIES & SEASONAL LIVE/OFF SWITCH ---
 async function saveCategory() {
   const name = document.getElementById("catName").value.trim(), password = document.getElementById("catPass").value.trim();
   if (!name || !password) { alert("Category name and password are required."); return; }
-  await db.collection("categories").add({ name, password, filterGroups: [], createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+  await db.collection("categories").add({ name, password, offSeason: false, filterGroups: [], createdAt: firebase.firestore.FieldValue.serverTimestamp() });
   document.getElementById("catName").value = ""; document.getElementById("catPass").value = "";
   await loadCategories(); showToast("✓ Category saved!");
+}
+
+async function toggleCategorySeason(id, curOff) {
+  const nextOff = !curOff;
+  await db.collection("categories").doc(id).update({ offSeason: nextOff });
+  const c = categories.find(x => x.id === id);
+  if (c) c.offSeason = nextOff;
+  renderAdminCategories();
+  showToast(nextOff ? "⏸️ Set to Off-Season" : "🟢 Category is Live!");
 }
 
 async function editCatPass(id, oldPass) { const np = prompt("Enter New Password:", oldPass); if (np && np.trim()) { await db.collection("categories").doc(id).update({ password: np.trim() }); await loadCategories(); } }
@@ -1346,12 +1897,18 @@ function copyCategoryLink(name, pass) {
 
 function renderAdminCategories() {
   document.getElementById("adminCatList").innerHTML = categories.length ? categories.map(c => `
-    <div class="list-item"><div><div style="font-weight:700;font-size:14px;">${escHtml(c.name)}</div><div style="font-size:12px;color:var(--p);">Pass: <strong>${escHtml(c.password)}</strong></div></div>
-    <div style="display:flex;gap:4px;">
-      <button class="btn-sm" style="background:var(--s);" onclick="copyCategoryLink('${escHtml(c.name)}','${escHtml(c.password)}')">Share</button>
-      <button class="btn-sm" style="background:var(--p);" onclick="editCatPass('${c.id}','${escHtml(c.password)}')">Pass</button>
-      <button class="btn-sm" style="background:var(--d);" onclick="deleteCategory('${c.id}')">X</button>
-    </div></div>`).join("") : `<p style="color:var(--m);font-size:13px;">No categories yet.</p>`;
+    <div class="list-item" style="flex-wrap:wrap;">
+      <div>
+        <div style="font-weight:700;font-size:14px;">${escHtml(c.name)} ${c.offSeason ? '<span class="badge badge-org">Off-Season</span>' : '<span class="badge badge-grn">Live</span>'}</div>
+        <div style="font-size:12px;color:var(--p);">Pass: <strong>${escHtml(c.password)}</strong></div>
+      </div>
+      <div style="display:flex;gap:4px;">
+        <button class="btn-sm" style="background:${c.offSeason ? '#6b7280' : '#0f766e'};" onclick="toggleCategorySeason('${c.id}', ${!!c.offSeason})">${c.offSeason ? 'Off' : 'Live'}</button>
+        <button class="btn-sm" style="background:var(--s);" onclick="copyCategoryLink('${escHtml(c.name)}','${escHtml(c.password)}')">Share</button>
+        <button class="btn-sm" style="background:var(--p);" onclick="editCatPass('${c.id}','${escHtml(c.password)}')">Pass</button>
+        <button class="btn-sm" style="background:var(--d);" onclick="deleteCategory('${c.id}')">X</button>
+      </div>
+    </div>`).join("") : `<p style="color:var(--m);font-size:13px;">No categories yet.</p>`;
 }
 
 // --- MULTI-GROUP FILTER CONFIGURATION ---
@@ -1494,92 +2051,167 @@ function populateCategoryDropdowns() {
   if (curCfgCat && categories.some(c => c.id === curCfgCat)) document.getElementById("filterConfigCat").value = curCfgCat;
   renderProdFilterInputs(getCurrentProdFilters());
   renderAdminFilterConfig();
+  renderAdminProducts();
 }
 
-async function saveAdBanner() {
-  if (!upAdImg) { alert("Please select an image first."); return; }
-  await db.collection("settings").doc("config").set({ adBanner: upAdImg }, { merge: true });
-  appSettings.adBanner = upAdImg; showToast("✓ Offer Banner saved!");
+// --- MULTIPLE BANNERS (UP TO 5) ---
+async function addAdBannerFile(e) {
+  const file = e.target.files[0];
+  e.target.value = "";
+  if (!file) return;
+  const cur = appSettings.adBanners || [];
+  if (cur.length >= 5) { alert("Maximum 5 offer banners allowed. Remove one first."); return; }
+  const b64 = await compressFileToBase64(file, 680, 0.65);
+  const nextBanners = [...cur, b64];
+  const totalBytes = JSON.stringify(nextBanners).length;
+  if (totalBytes > 750000) {
+    alert("Banner image size is too large. Please remove an old banner first.");
+    return;
+  }
+  await db.collection("settings").doc("config").set({ adBanners: nextBanners, adBanner: nextBanners[0] || "" }, { merge: true });
+  appSettings.adBanners = nextBanners;
+  appSettings.adBanner = nextBanners[0] || "";
+  renderAdminBanners();
+  showToast(`✓ Banner ${nextBanners.length} added!`);
 }
 
-async function removeAdBanner() {
-  await db.collection("settings").doc("config").set({ adBanner: "" }, { merge: true });
-  appSettings.adBanner = ""; upAdImg = ""; document.getElementById("adPreview").classList.add("hidden"); showToast("✓ Offer Banner removed!");
+async function removeAdBannerAt(idx) {
+  const nextBanners = (appSettings.adBanners || []).filter((_, i) => i !== idx);
+  await db.collection("settings").doc("config").set({ adBanners: nextBanners, adBanner: nextBanners[0] || "" }, { merge: true });
+  appSettings.adBanners = nextBanners;
+  appSettings.adBanner = nextBanners[0] || "";
+  renderAdminBanners();
+  showToast("✓ Banner removed!");
 }
 
+function renderAdminBanners() {
+  const list = appSettings.adBanners || [];
+  document.getElementById("bannerCountTxt").innerText = list.length;
+  document.getElementById("adminBannerGrid").innerHTML = list.map((src, i) => `
+    <div class="banner-thumb-box">
+      <img src="${src}" onclick="zoomImage('${src}')" />
+      <button type="button" onclick="removeAdBannerAt(${i})">×</button>
+    </div>`).join("");
+}
+
+// --- SMART VOUCHER RULES ---
 async function saveVoucher() {
   const code = document.getElementById("vCode").value.trim().toUpperCase();
-  const minOrder = Number(document.getElementById("vMin").value) || 0;
+  const discType = document.getElementById("vDiscType").value;
   const discount = Number(document.getElementById("vDisc").value) || 0;
-  if (!code || !discount) { alert("Code and Discount % are required!"); return; }
-  await db.collection("vouchers").doc(code).set({ code, minOrder, discount });
-  document.getElementById("vCode").value = ""; document.getElementById("vMin").value = ""; document.getElementById("vDisc").value = "";
+  const minOrder = Number(document.getElementById("vMin").value) || 0;
+  const maxUses = Number(document.getElementById("vMaxUses").value) || 0;
+  const firstTimeOnly = document.getElementById("vFirstTime").checked;
+  if (!code || !discount) { alert("Voucher Code and Discount Value are required!"); return; }
+  await db.collection("vouchers").doc(code).set({ code, discType, discount, minOrder, maxUses, firstTimeOnly });
+  document.getElementById("vCode").value = "";
+  document.getElementById("vMin").value = "";
+  document.getElementById("vDisc").value = "";
+  document.getElementById("vMaxUses").value = "0";
+  document.getElementById("vFirstTime").checked = false;
   await loadVouchers(); showToast("✓ Voucher saved!");
 }
 
 async function deleteVoucher(id) { if (confirm("Delete voucher?")) { await db.collection("vouchers").doc(id).delete(); await loadVouchers(); } }
 
 function renderAdminVouchers() {
-  document.getElementById("adminVoucherList").innerHTML = vouchers.length ? vouchers.map(v => `
-    <div class="list-item"><div><strong>${v.code}</strong> <span class="badge badge-grn">${v.discount}% OFF</span><div style="font-size:11px;color:#555;">Min Order: ₹${v.minOrder}</div></div>
-    <button class="btn-sm" style="background:var(--d);" onclick="deleteVoucher('${v.id}')">X</button></div>`).join("") : `<p style="color:var(--m);font-size:12px;">No vouchers yet.</p>`;
+  document.getElementById("adminVoucherList").innerHTML = vouchers.length ? vouchers.map(v => {
+    const dStr = v.discType === "flat" ? `Flat ₹${v.discount} OFF` : `${v.discount}% OFF`;
+    const uStr = v.maxUses > 0 ? `<span class="badge">${v.maxUses}x / User</span>` : "";
+    const fStr = v.firstTimeOnly ? `<span class="badge badge-pur">1st Order Only</span>` : "";
+    return `
+    <div class="list-item">
+      <div>
+        <strong>${escHtml(v.code)}</strong> <span class="badge badge-grn">${dStr}</span> ${uStr} ${fStr}
+        <div style="font-size:11px;color:#555;margin-top:2px;">Min Order: ₹${v.minOrder}</div>
+      </div>
+      <button class="btn-sm" style="background:var(--d);" onclick="deleteVoucher('${v.id}')">X</button>
+    </div>`;
+  }).join("") : `<p style="color:var(--m);font-size:12px;">No vouchers yet.</p>`;
 }
 
-async function toggleBlockCustomer(mob, sb) { await db.collection("customers").doc(mob).set({ mobile: mob, blocked: sb }, { merge: true }); await loadAdminRecords(); }
-async function deleteCustomer(mob) { if (confirm("Delete user " + mob + "?")) { await db.collection("customers").doc(mob).delete(); await loadAdminRecords(); } }
+// --- USERS & CUSTOMER ORDER STATS ---
+async function toggleBlockCustomer(mob, sb) { await db.collection("customers").doc(mob).set({ mobile: mob, blocked: sb }, { merge: true }); await loadAdminRecords(false); }
+async function deleteCustomer(mob) { if (confirm("Delete user " + mob + "?")) { await db.collection("customers").doc(mob).delete(); await loadAdminRecords(false); } }
 async function manualBlockCustomer() {
   const mob = document.getElementById("manualBlockNum").value.replace(/\D/g, "");
   if (mob.length !== 10) { alert("Enter a valid 10-digit mobile number."); return; }
   await db.collection("customers").doc(mob).set({ mobile: mob, name: "Blocked Number", blocked: true }, { merge: true });
-  document.getElementById("manualBlockNum").value = ""; await loadAdminRecords(); showToast("✓ " + mob + " blocked!");
+  document.getElementById("manualBlockNum").value = ""; await loadAdminRecords(false); showToast("✓ " + mob + " blocked!");
 }
 
 function renderAdminCustomers() {
-  document.getElementById("adminCustList").innerHTML = customers.length ? customers.map(c => `
-    <div class="list-item"><div><div style="font-weight:700;font-size:13px;">${c.mobile} ${c.blocked ? '<span class="badge badge-red">BLOCKED</span>' : ''}</div>
-    <div style="font-size:11px;color:#555;">${c.name || 'Customer'}</div></div>
+  const statsMap = {};
+  orders.forEach(o => {
+    const m = String(o.mobile || "");
+    if (!m) return;
+    if (!statsMap[m]) statsMap[m] = { count: 0, spent: 0 };
+    statsMap[m].count++;
+    statsMap[m].spent += Number(o.totalAmt) || 0;
+  });
+
+  document.getElementById("adminCustList").innerHTML = customers.length ? customers.map(c => {
+    const st = statsMap[c.mobile] || { count: 0, spent: 0 };
+    return `
+    <div class="list-item"><div><div style="font-weight:700;font-size:13px;">${escHtml(c.mobile)} ${c.blocked ? '<span class="badge badge-red">BLOCKED</span>' : ''}</div>
+    <div style="font-size:11px;color:#555;">${escHtml(c.name || 'Customer')} • <strong>Orders: ${st.count} | Total: ₹${st.spent}</strong></div></div>
     <div style="display:flex;gap:4px;">
       <button class="btn-sm" style="background:${c.blocked ? 'var(--s)' : 'var(--d)'};" onclick="toggleBlockCustomer('${c.mobile}', ${!c.blocked})">${c.blocked ? 'Unblock' : 'Block'}</button>
       <button class="btn-sm" style="background:#6b7280;" onclick="deleteCustomer('${c.mobile}')">Del</button>
-    </div></div>`).join("") : `<p style="color:var(--m);font-size:12px;">No registered users yet.</p>`;
+    </div></div>`;
+  }).join("") : `<p style="color:var(--m);font-size:12px;">No registered users yet.</p>`;
 }
 
-async function deleteOrder(id) { if (confirm("Delete this order?")) { await db.collection("orders").doc(id).delete(); await loadAdminRecords(); } }
+async function deleteOrder(id) { if (confirm("Delete this order?")) { await db.collection("orders").doc(id).delete(); await loadAdminRecords(false); } }
 
 function renderAdminOrders() {
   document.getElementById("adminOrdList").innerHTML = orders.length ? orders.map((o, idx) => {
     const dt = o.createdAt && o.createdAt.toDate ? o.createdAt.toDate().toLocaleString("en-IN") : "";
+    const st = o.status || "New";
     const itemsHtml = (o.items || []).map(i => {
       const imgSrc = getItemImg(i);
       return `<div class="ord-item-row">
         <img src="${imgSrc}" class="ord-thumb" onclick="zoomImage('${imgSrc}')" />
         <div style="flex:1;">
-          <div style="font-weight:600;">${i.name}</div>
+          <div style="font-weight:600;">${escHtml(i.name)}</div>
           <div style="color:#555;font-size:11px;">Qty: <strong>${i.qty} pcs</strong> × ₹${i.price} = ₹${i.sub || (i.qty * i.price)}</div>
         </div>
       </div>`;
     }).join("");
     return `<div class="ord-card">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-        <strong>Consignee: ${o.customerName} (${o.mobile})</strong>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:4px;margin-bottom:4px;">
+        <strong>Consignee: ${escHtml(o.customerName)} (${o.mobile})</strong>
         <div style="display:flex;gap:4px;">
           <button class="btn-sm" style="background:var(--p);padding:3px 6px;" onclick="openAdminOrderEdit(${idx})">Edit/PDF</button>
           <button class="btn-sm" style="background:var(--s);padding:3px 6px;" onclick="shareOrDownloadPDF(orders[${idx}], true)">Send PDF</button>
           <button class="btn-sm" style="background:var(--d);padding:3px 6px;" onclick="deleteOrder('${o.id}')">X</button>
         </div>
       </div>
-      <div style="color:#666;font-size:11px;margin-bottom:6px;">${dt}</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <span style="color:#666;font-size:11px;">${dt}</span>
+        <div style="display:flex;gap:3px;">
+          ${["New","Accepted","Completed"].map(sName => {
+            const active = st === sName;
+            const bg = active ? (sName === "Completed" ? "var(--s)" : (sName === "Accepted" ? "#d97706" : "var(--p)")) : "#e5e7eb";
+            const col = active ? "#fff" : "#374151";
+            return `<button type="button" class="btn-sm" style="background:${bg};color:${col};padding:2px 7px;font-size:11px;" onclick="changeOrderStatus(${idx}, '${sName}')">${sName}</button>`;
+          }).join("")}
+        </div>
+      </div>
+      ${o.remark ? `<div style="background:#fef3c7;color:#92400e;padding:5px 8px;border-radius:6px;font-size:11px;margin-bottom:6px;"><strong>Remark:</strong> ${escHtml(o.remark)}</div>` : ''}
       <div style="margin-bottom:6px;">${itemsHtml}</div>
-      <div style="font-weight:700;color:var(--p);">Final: ₹${o.totalAmt} (${o.totalPcs} pcs) ${o.discountAmt ? `<span style="color:var(--s);font-size:11px;">(Disc: -₹${o.discountAmt})</span>` : ''}</div>
+      <div style="font-weight:700;color:var(--p);">Final: ₹${o.totalAmt} (${o.totalPcs} pcs) ${o.discountAmt ? `<span style="color:var(--s);font-size:11px;">(Disc: -₹${o.discountAmt}${o.voucherCode ? ' ['+escHtml(o.voucherCode)+']' : ''})</span>` : ''}</div>
     </div>`;
   }).join("") : `<p style="color:var(--m);font-size:12px;">No orders yet.</p>`;
 }
 
+// --- SETTINGS, IN-APP NOTICE & 1-CLICK BACKUP ---
 async function saveSettings() {
   const data = {
     shopName: document.getElementById("setShopName").value.trim() || "Raza Traders",
     whatsapp: document.getElementById("setWhatsapp").value.trim(),
     adminPin: document.getElementById("setAdminPin").value.trim() || "7860",
+    minOrderAmt: Number(document.getElementById("setMinOrderAmt").value) || 0,
     catalogOn: document.getElementById("ctrlCatalogOn").checked,
     strictSet: document.getElementById("ctrlStrictSet").checked
   };
@@ -1587,6 +2219,47 @@ async function saveSettings() {
   await db.collection("settings").doc("config").set(data, { merge: true });
   appSettings = { ...appSettings, ...data };
   applySettingsUI(); showToast("✓ Settings & Logo saved!");
+}
+
+async function saveNoticeSetting(isClear) {
+  const txt = isClear ? "" : document.getElementById("setNoticeText").value.trim();
+  const upd = { noticeText: txt, noticeUpdatedAt: txt ? Date.now() : 0 };
+  await db.collection("settings").doc("config").set(upd, { merge: true });
+  appSettings = { ...appSettings, ...upd };
+  document.getElementById("setNoticeText").value = txt;
+  showToast(isClear ? "✓ Notice cleared!" : "✓ Notice published!");
+}
+
+async function downloadFullBackup() {
+  const btn = document.getElementById("backupBtn");
+  btn.innerText = "Preparing Backup..."; btn.disabled = true;
+  try {
+    if (!orders.length || !customers.length) await loadAdminRecords(false);
+    const backupObj = {
+      exportedAt: new Date().toISOString(),
+      shopName: appSettings.shopName,
+      categories,
+      subCategories,
+      products,
+      vouchers,
+      customers,
+      orders
+    };
+    const blob = new Blob([JSON.stringify(backupObj, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `Raza_Traders_Backup_${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    showToast("✓ Backup downloaded!");
+  } catch (e) {
+    alert("Backup Error: " + e.message);
+  } finally {
+    btn.innerText = "📥 Download Full Data Backup"; btn.disabled = false;
+  }
 }
 
 initApp();
