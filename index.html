@@ -30,8 +30,12 @@ header h1{font-size:18px;font-weight:700}header small{display:block;font-size:12
 .auth-tab{flex:1;padding:9px;border:none;border-radius:8px;background:#e5e7eb;font-weight:600;font-size:13px;cursor:pointer;color:#374151}
 .auth-tab.active{background:var(--p);color:#fff}
 input,select,textarea{width:100%;padding:10px 11px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;margin-bottom:10px;background:#fff}
+input[readonly]{background:#f3f4f6;color:#374151;font-weight:600}
 textarea{resize:vertical;min-height:56px}
 label{display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#374151;text-align:left}
+.pin-row{display:flex;gap:6px;margin-bottom:10px}
+.pin-row input{margin:0;flex:1;letter-spacing:3px;font-weight:700}
+.pin-toggle{padding:0 11px;border:1px solid #d1d5db;border-radius:8px;background:#f9fafb;color:#374151;font-size:12px;font-weight:600;cursor:pointer}
 .btn{width:100%;padding:11px;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;color:#fff;background:var(--p)}
 .btn-s{background:var(--s)}.btn-d{background:var(--d)}.btn-o{background:#fff;color:var(--p);border:1px solid var(--p)}
 .cat-pills,.tabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;margin-bottom:10px}
@@ -136,7 +140,7 @@ label{display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#3741
   <div class="card login-box">
     <img id="loginLogoImg" class="login-logo hidden" />
     <h2 id="loginShopTitle">Raza Traders</h2>
-    <p>Login with your registered Mobile Number</p>
+    <p>Login with your Mobile Number &amp; 4-Digit PIN</p>
     <div class="auth-tabs">
       <button class="auth-tab active" id="modeLoginBtn" onclick="setAuthMode('login')">Login</button>
       <button class="auth-tab" id="modeSignupBtn" onclick="setAuthMode('signup')">New Sign Up</button>
@@ -147,11 +151,28 @@ label{display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#3741
     </div>
     <label>Mobile Number (10 Digits - Required)</label>
     <input type="tel" id="custMobileLogin" maxlength="10" placeholder="Ex: 9876543210" />
+    <label id="custPinLabel">4-Digit Secret PIN (Required)</label>
+    <div class="pin-row">
+      <input type="password" inputmode="numeric" id="custPinLogin" maxlength="4" placeholder="Ex: 1234" />
+      <button type="button" class="pin-toggle" id="pinVisBtn" onclick="togglePinVis()">Show</button>
+    </div>
+    <p id="custPinHint" style="font-size:11px;color:#4b5563;text-align:left;margin:-4px 0 10px;">Purane customer pehli baar apna naya 4-digit PIN daal kar set kar sakte hain.</p>
     <button class="btn" id="loginBtn" onclick="handleCustomerAuth()">Login</button>
     <p id="loginErr" style="color:var(--d);margin-top:10px;font-size:13px;"></p>
     <button class="btn btn-s" id="installAppBtn" style="margin-top:12px;" onclick="installPWA()">📲 Install Raza Traders App</button>
     <hr style="margin:14px 0;border:none;border-top:1px solid #e5e7eb;" />
     <button class="btn btn-o" onclick="openAdminPrompt()">Admin Login (Owner)</button>
+  </div>
+</div>
+
+<!-- LEGACY CUSTOMER SET PIN MODAL (IF AUTO-LOGGED IN WITHOUT PIN) -->
+<div id="legacyPinModal" class="modal-bg hidden">
+  <div class="modal">
+    <h3 style="margin-bottom:6px;">🔒 Create Your 4-Digit PIN</h3>
+    <p style="font-size:12px;color:#4b5563;margin-bottom:12px;">Aapke account ki suraksha ke liye ab 4-digit PIN zaroori hai, taaki koi aur aapke orders ya billing na dekh sake.</p>
+    <label>New 4-Digit Secret PIN *</label>
+    <input type="tel" inputmode="numeric" id="legacyNewPinInp" maxlength="4" placeholder="Ex: 1234" style="letter-spacing:3px;font-weight:700;" />
+    <button class="btn btn-s" id="saveLegacyPinBtn" onclick="saveLegacyCustomerPin()">Save PIN &amp; Continue</button>
   </div>
 </div>
 
@@ -580,6 +601,18 @@ function escHtml(s) {
   return String(s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
 }
 
+function togglePinVis() {
+  const inp = document.getElementById("custPinLogin");
+  const btn = document.getElementById("pinVisBtn");
+  if (inp.type === "password") {
+    inp.type = "text";
+    btn.innerText = "Hide";
+  } else {
+    inp.type = "password";
+    btn.innerText = "Show";
+  }
+}
+
 async function installPWA() {
   if (deferredPrompt) {
     deferredPrompt.prompt();
@@ -651,7 +684,7 @@ async function initApp() {
         document.getElementById("loginView").classList.remove("hidden");
         document.getElementById("loginErr").innerText = "Catalog is currently closed.";
       } else {
-        const ok = await loginCustomerByMobile(savedMobInitial, true);
+        const ok = await loginCustomerByMobile(savedMobInitial, "", true);
         if (!ok) {
           document.getElementById("appSplash").classList.add("hidden");
           document.getElementById("loginView").classList.remove("hidden");
@@ -696,6 +729,8 @@ function setAuthMode(mode) {
   document.getElementById("modeLoginBtn").classList.toggle("active", mode === "login");
   document.getElementById("modeSignupBtn").classList.toggle("active", mode === "signup");
   document.getElementById("signupNameBox").classList.toggle("hidden", mode === "login");
+  document.getElementById("custPinLabel").innerText = mode === "login" ? "4-Digit Secret PIN (Required)" : "Create 4-Digit Secret PIN (Required)";
+  document.getElementById("custPinHint").classList.toggle("hidden", mode === "signup");
   document.getElementById("loginBtn").innerText = mode === "login" ? "Login" : "Sign Up & Open Catalog";
   document.getElementById("loginErr").innerText = "";
 }
@@ -706,7 +741,6 @@ function sortCategoriesList() {
 
 async function loadCategories() {
   const snap = await db.collection("categories").get();
-  const total = snap.docs.length;
   categories = snap.docs.map((d, idx) => {
     const data = d.data();
     let groups = Array.isArray(data.filterGroups) ? [...data.filterGroups] : [];
@@ -835,29 +869,86 @@ function restoreCustomerCart(mob) {
   } catch (e) {}
 }
 
-async function loginCustomerByMobile(mob, isAuto) {
+// --- 4-DIGIT CUSTOMER PIN LOGIN & SIGNUP ---
+async function loginCustomerByMobile(mob, enteredPin, isAuto) {
   const errEl = document.getElementById("loginErr");
   const cRef = db.collection("customers").doc(mob);
   const cDoc = await cRef.get();
 
   if (cDoc.exists && cDoc.data().blocked === true) {
     localStorage.removeItem("rt_app_mobile");
+    localStorage.removeItem("rt_app_pin");
     errEl.innerText = "Your number is blocked. Please contact Raza Traders.";
     return false;
   }
 
-  if (isAuto || authMode === "login") {
+  let effectivePin = "";
+  let needsLegacyPinSetup = false;
+
+  if (isAuto) {
     if (!cDoc.exists) {
-      if (isAuto) localStorage.removeItem("rt_app_mobile");
-      else errEl.innerText = "Number not registered. Please tap 'New Sign Up' first.";
+      localStorage.removeItem("rt_app_mobile");
+      localStorage.removeItem("rt_app_pin");
       return false;
+    }
+    const dbPin = String(cDoc.data().pin || "").trim();
+    const savedPin = String(localStorage.getItem("rt_app_pin") || "").trim();
+    if (dbPin) {
+      if (dbPin !== savedPin) {
+        localStorage.removeItem("rt_app_mobile");
+        localStorage.removeItem("rt_app_pin");
+        errEl.innerText = "Your PIN was updated. Please login with your new 4-digit PIN.";
+        return false;
+      }
+      effectivePin = dbPin;
+    } else {
+      needsLegacyPinSetup = true;
     }
     activeCustName = cDoc.data().name || "Customer";
     cRef.set({ lastSeen: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true }).catch(() => {});
+  } else if (authMode === "login") {
+    if (!cDoc.exists) {
+      errEl.innerText = "Number not registered. Please tap 'New Sign Up' first.";
+      return false;
+    }
+    if (!/^\d{4}$/.test(enteredPin)) {
+      errEl.innerText = "Please enter your 4-digit Secret PIN.";
+      return false;
+    }
+    const dbPin = String(cDoc.data().pin || "").trim();
+    if (dbPin) {
+      if (dbPin !== enteredPin) {
+        errEl.innerText = "Incorrect 4-digit PIN! Contact Raza Traders if you forgot your PIN.";
+        return false;
+      }
+      effectivePin = dbPin;
+      cRef.set({ lastSeen: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true }).catch(() => {});
+    } else {
+      effectivePin = enteredPin;
+      await cRef.set({ pin: enteredPin, lastSeen: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+      showToast("✓ 4-Digit PIN set for your account!");
+    }
+    activeCustName = cDoc.data().name || "Customer";
   } else {
+    if (!/^\d{4}$/.test(enteredPin)) {
+      errEl.innerText = "Please create a 4-digit numeric PIN (Ex: 1234).";
+      return false;
+    }
+    if (cDoc.exists && cDoc.data().pin) {
+      errEl.innerText = "This number is already registered! Please tap 'Login' and enter your 4-digit PIN.";
+      return false;
+    }
     const sName = document.getElementById("custSignupName").value.trim() || "Customer";
     activeCustName = sName;
-    await cRef.set({ mobile: mob, name: sName, blocked: false, createdAt: firebase.firestore.FieldValue.serverTimestamp(), lastSeen: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+    effectivePin = enteredPin;
+    await cRef.set({
+      mobile: mob,
+      name: sName,
+      pin: enteredPin,
+      blocked: false,
+      createdAt: (cDoc.exists && cDoc.data().createdAt) ? cDoc.data().createdAt : firebase.firestore.FieldValue.serverTimestamp(),
+      lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
   }
 
   activeMobile = mob;
@@ -868,8 +959,10 @@ async function loginCustomerByMobile(mob, isAuto) {
   restoreUnlockedCategories(mob);
   restoreCustomerCart(mob);
 
-  // Save session for BOTH Chrome Browser and Installed App
-  try { localStorage.setItem("rt_app_mobile", mob); } catch (e) {}
+  try {
+    localStorage.setItem("rt_app_mobile", mob);
+    if (effectivePin) localStorage.setItem("rt_app_pin", effectivePin);
+  } catch (e) {}
 
   const urlPass = new URLSearchParams(window.location.search).get("pass");
   if (urlPass) {
@@ -880,7 +973,9 @@ async function loginCustomerByMobile(mob, isAuto) {
     activeCategory = categories.find(c => unlockedCatIds.has(c.id) && !c.offSeason) || categories.find(c => !c.offSeason) || categories[0];
   }
 
-  document.getElementById("custMobileOrder").value = mob;
+  const ordMobInp = document.getElementById("custMobileOrder");
+  ordMobInp.value = mob;
+  ordMobInp.readOnly = true;
   document.getElementById("custName").value = activeCustName === "Customer" ? "" : activeCustName;
   document.getElementById("hdrSub").innerText = activeCustName + " (" + mob + ")";
   document.getElementById("appSplash").classList.add("hidden");
@@ -890,7 +985,32 @@ async function loginCustomerByMobile(mob, isAuto) {
   document.getElementById("logoutBtn").classList.remove("hidden");
   setupCustomerNoticeUI();
   updateFilterBtnUI(); renderInlineAd(); renderCatPills(); renderCustomerProducts(); updateCartBar();
+
+  if (needsLegacyPinSetup) {
+    document.getElementById("legacyNewPinInp").value = "";
+    document.getElementById("legacyPinModal").classList.remove("hidden");
+  }
   return true;
+}
+
+async function saveLegacyCustomerPin() {
+  const pin = document.getElementById("legacyNewPinInp").value.replace(/\D/g, "");
+  if (pin.length !== 4) {
+    alert("Please enter a valid 4-digit PIN (Ex: 1234).");
+    return;
+  }
+  const btn = document.getElementById("saveLegacyPinBtn");
+  btn.innerText = "Saving..."; btn.disabled = true;
+  try {
+    await db.collection("customers").doc(activeMobile).set({ pin }, { merge: true });
+    localStorage.setItem("rt_app_pin", pin);
+    document.getElementById("legacyPinModal").classList.add("hidden");
+    showToast("✓ 4-Digit PIN saved!");
+  } catch (e) {
+    alert("Error: " + e.message);
+  } finally {
+    btn.innerText = "Save PIN & Continue"; btn.disabled = false;
+  }
 }
 
 async function handleCustomerAuth() {
@@ -898,10 +1018,15 @@ async function handleCustomerAuth() {
   if (appSettings.catalogOn === false) { errEl.innerText = "Catalog is currently closed."; return; }
   const mob = document.getElementById("custMobileLogin").value.replace(/\D/g, "");
   if (mob.length !== 10) { errEl.innerText = "Please enter a valid 10-digit mobile number."; return; }
+  const pin = document.getElementById("custPinLogin").value.replace(/\D/g, "");
+  if (pin.length !== 4) {
+    errEl.innerText = authMode === "login" ? "Please enter your 4-digit Secret PIN." : "Please create a 4-digit Secret PIN.";
+    return;
+  }
 
   const btn = document.getElementById("loginBtn"); btn.innerText = "Checking..."; btn.disabled = true; errEl.innerText = "";
   try {
-    await loginCustomerByMobile(mob, false);
+    await loginCustomerByMobile(mob, pin, false);
   } catch (e) { errEl.innerText = "Error: " + e.message; }
   finally { btn.innerText = authMode === "login" ? "Login" : "Sign Up & Open Catalog"; btn.disabled = false; }
 }
@@ -1093,7 +1218,6 @@ function toggleNewOnlyFilter() {
   renderCustomerProducts();
 }
 
-// 10 DAYS NEW BADGE
 function isProductNew(p) {
   if (!p._createdMs) return false;
   return (Date.now() - p._createdMs) <= 10 * 24 * 60 * 60 * 1000;
@@ -1199,10 +1323,13 @@ function logout() {
   localStorage.removeItem("rt_admin_logged_in");
   localStorage.removeItem("rt_admin_dev_synced");
   localStorage.removeItem("rt_app_mobile");
+  localStorage.removeItem("rt_app_pin");
+  document.getElementById("custPinLogin").value = "";
+  document.getElementById("custMobileOrder").readOnly = false;
   unlockedCatIds = new Set(); activeCategory = null; activeFilters = {}; newOnlyFilter = false;
   activeMobile = ""; cart = {}; appliedVouchers = []; customerPastOrders = null;
   document.getElementById("hdrSub").innerText = "Wholesale Digital Catalog";
-  ["appSplash","customerView","adminView","cartBar","logoutBtn","myOrdersBtn","noticeBellBtn"].forEach(id => document.getElementById(id).classList.add("hidden"));
+  ["appSplash","customerView","adminView","cartBar","logoutBtn","myOrdersBtn","noticeBellBtn","legacyPinModal"].forEach(id => document.getElementById(id).classList.add("hidden"));
   document.getElementById("loginView").classList.remove("hidden");
 }
 
@@ -1388,7 +1515,11 @@ function openCartModal() {
   document.getElementById("cartItemsList").innerHTML = html;
   document.getElementById("voucherMsg").innerText = "";
   refreshCartModalTotals();
-  if (activeMobile) document.getElementById("custMobileOrder").value = activeMobile;
+  if (activeMobile) {
+    const ordMobInp = document.getElementById("custMobileOrder");
+    ordMobInp.value = activeMobile;
+    ordMobInp.readOnly = true;
+  }
   document.getElementById("cartModal").classList.remove("hidden");
 }
 
@@ -1552,7 +1683,7 @@ function repeatCustomerOrder(idx) {
 
 async function sendCustomerOrder() {
   if (!appSettings.whatsapp) { alert("Admin WhatsApp number is not set."); return; }
-  const mob = document.getElementById("custMobileOrder").value.replace(/\D/g, "");
+  const mob = activeMobile || document.getElementById("custMobileOrder").value.replace(/\D/g, "");
   if (mob.length !== 10) { alert("10-digit mobile number is required!"); return; }
   const cName = document.getElementById("custName").value.trim() || "Customer";
   const remark = document.getElementById("custRemark").value.trim();
@@ -2411,7 +2542,22 @@ function renderAdminVouchers() {
   }).join("") : `<p style="color:var(--m);font-size:12px;">No vouchers yet.</p>`;
 }
 
-// --- USERS & CUSTOMER ORDER STATS ---
+// --- USERS, CUSTOMER PIN RESET & ORDER STATS ---
+async function resetCustomerPin(mob) {
+  const np = prompt(`Enter new 4-digit PIN for ${mob}:`);
+  if (np === null) return;
+  const cleanPin = np.trim();
+  if (!/^\d{4}$/.test(cleanPin)) {
+    alert("Please enter exact 4 digits (Ex: 1234).");
+    return;
+  }
+  await db.collection("customers").doc(mob).set({ mobile: mob, pin: cleanPin }, { merge: true });
+  const c = customers.find(x => x.mobile === mob);
+  if (c) c.pin = cleanPin;
+  renderAdminCustomers();
+  showToast(`✓ PIN updated to ${cleanPin}`);
+}
+
 async function toggleBlockCustomer(mob, sb) { await db.collection("customers").doc(mob).set({ mobile: mob, blocked: sb }, { merge: true }); await loadAdminRecords(false); }
 async function deleteCustomer(mob) { if (confirm("Delete user " + mob + "?")) { await db.collection("customers").doc(mob).delete(); await loadAdminRecords(false); } }
 async function manualBlockCustomer() {
@@ -2433,10 +2579,12 @@ function renderAdminCustomers() {
 
   document.getElementById("adminCustList").innerHTML = customers.length ? customers.map(c => {
     const st = statsMap[c.mobile] || { count: 0, spent: 0 };
+    const pinBadge = c.pin ? `<span class="badge badge-pur">PIN: ${escHtml(c.pin)}</span>` : `<span class="badge badge-org">No PIN</span>`;
     return `
-    <div class="list-item"><div><div style="font-weight:700;font-size:13px;">${escHtml(c.mobile)} ${c.blocked ? '<span class="badge badge-red">BLOCKED</span>' : ''}</div>
+    <div class="list-item"><div><div style="font-weight:700;font-size:13px;">${escHtml(c.mobile)} ${pinBadge} ${c.blocked ? '<span class="badge badge-red">BLOCKED</span>' : ''}</div>
     <div style="font-size:11px;color:#555;">${escHtml(c.name || 'Customer')} • <strong>Orders: ${st.count} | Total: ₹${st.spent}</strong></div></div>
     <div style="display:flex;gap:4px;">
+      <button class="btn-sm" style="background:var(--p);" onclick="resetCustomerPin('${c.mobile}')">PIN</button>
       <button class="btn-sm" style="background:${c.blocked ? 'var(--s)' : 'var(--d)'};" onclick="toggleBlockCustomer('${c.mobile}', ${!c.blocked})">${c.blocked ? 'Unblock' : 'Block'}</button>
       <button class="btn-sm" style="background:#6b7280;" onclick="deleteCustomer('${c.mobile}')">Del</button>
     </div></div>`;
