@@ -122,6 +122,7 @@ label{display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#3741
   <div class="hdr-actions">
     <button id="noticeBellBtn" class="btn-sm hidden" onclick="openNoticeModal()">🔔<span id="noticeBellDot" class="bell-dot hidden"></span></button>
     <button id="myOrdersBtn" class="btn-sm hidden" onclick="openMyOrdersModal()">My Orders</button>
+    <button id="adminRefreshBtn" class="btn-sm hidden" onclick="refreshAllAdminData()">🔄 Refresh</button>
     <button id="logoutBtn" class="btn-sm hidden" onclick="logout()">Logout</button>
   </div>
 </header>
@@ -634,6 +635,95 @@ const firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
+db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
+
+// --- SMART LOCAL INDEXEDDB CACHE + DELTA SYNC (90% FEWER READS, ZERO GALLERY FILES) ---
+const RT_CACHE_DB = "rt_catalog_smart_cache_v1";
+const RT_CACHE_STORE = "kv";
+const RT_SCHEMA_VER = "v2_delta_sync";
+
+function openSmartCacheDB() {
+  return new Promise((resolve) => {
+    if (!window.indexedDB) { resolve(null); return; }
+    try {
+      const req = indexedDB.open(RT_CACHE_DB, 1);
+      req.onupgradeneeded = (e) => {
+        const idb = e.target.result;
+        if (!idb.objectStoreNames.contains(RT_CACHE_STORE)) {
+          idb.createObjectStore(RT_CACHE_STORE);
+        }
+      };
+      req.onsuccess = (e) => resolve(e.target.result);
+      req.onerror = () => resolve(null);
+    } catch (e) { resolve(null); }
+  });
+}
+
+async function getSmartCache(key) {
+  const idb = await openSmartCacheDB();
+  if (!idb) return null;
+  return new Promise((resolve) => {
+    try {
+      const tx = idb.transaction(RT_CACHE_STORE, "readonly");
+      const req = tx.objectStore(RT_CACHE_STORE).get(key);
+      req.onsuccess = () => resolve(req.result !== undefined ? req.result : null);
+      req.onerror = () => resolve(null);
+    } catch (e) { resolve(null); }
+  });
+}
+
+async function setSmartCache(key, val) {
+  const idb = await openSmartCacheDB();
+  if (!idb) return;
+  return new Promise((resolve) => {
+    try {
+      const tx = idb.transaction(RT_CACHE_STORE, "readwrite");
+      tx.objectStore(RT_CACHE_STORE).put(val, key);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => resolve();
+    } catch (e) { resolve(); }
+  });
+}
+
+async function saveCatalogSnapshotToCache() {
+  try {
+    const cleanProducts = products.filter(p => !p.deleted).map(p => {
+      const copy = { ...p };
+      delete copy.createdAt;
+      delete copy.updatedAt;
+      return copy;
+    });
+    const cleanCategories = categories.filter(c => !c.deleted).map(c => {
+      const copy = { ...c };
+      delete copy.createdAt;
+      delete copy.updatedAt;
+      return copy;
+    });
+    const cleanSubCats = subCategories.filter(s => !s.deleted).map(s => {
+      const copy = { ...s };
+      delete copy.createdAt;
+      delete copy.updatedAt;
+      return copy;
+    });
+    const cleanVouchers = vouchers.filter(v => !v.deleted).map(v => ({ ...v }));
+    await setSmartCache("catalog_snapshot", {
+      schema: RT_SCHEMA_VER,
+      lastSyncMs: Date.now(),
+      categories: cleanCategories,
+      subCategories: cleanSubCats,
+      products: cleanProducts,
+      vouchers: cleanVouchers
+    });
+  } catch (e) {}
+}
+
+function bumpCatalogMeta(targetKey) {
+  const now = Date.now();
+  const upd = { lastCatalogUpdate: now };
+  if (targetKey) upd[targetKey] = now;
+  appSettings = { ...appSettings, ...upd };
+  db.collection("settings").doc("config").set(upd, { merge: true }).catch(() => {});
+}
 
 let appSettings = {
   shopName: "Raza Traders", whatsapp: "", adminPin: "7860",
@@ -660,8 +750,32 @@ async function initApp() {
       appSettings.adminDevices = [];
     }
     applySettingsUI();
-    await Promise.all([loadCategories(), loadSubCategories(), loadProducts(), loadVouchers()]);
-    populateCategoryDropdowns();
+
+    const cached = await getSmartCache("catalog_snapshot");
+    const hasValidCache = cached && cached.schema === RT_SCHEMA_VER && Array.isArray(cached.products) && cached.products.length > 0 && Array.isArray(cached.categories) && cached.categories.length > 0;
+    const serverLastUpd = Number(appSettings.lastCatalogUpdate) || 0;
+
+    if (hasValidCache && !savedAdminInitial) {
+      categories = cached.categories;
+      subCategories = cached.subCategories || [];
+      products = cached.products;
+      vouchers = cached.vouchers || [];
+      sortCategoriesList();
+      sortProductsList();
+      renderAdminCategories();
+      renderAdminFilterConfig();
+      renderAdminProducts();
+      renderAdminVouchers();
+      populateCategoryDropdowns();
+
+      if (serverLastUpd > (cached.lastSyncMs || 0)) {
+        await deltaSyncCatalog(cached.lastSyncMs || 0);
+      }
+    } else {
+      await Promise.all([loadCategories(), loadSubCategories(), loadProducts(), loadVouchers()]);
+      populateCategoryDropdowns();
+      await saveCatalogSnapshotToCache();
+    }
 
     if (savedAdminInitial) {
       const myDevId = getDeviceId();
@@ -739,23 +853,43 @@ function sortCategoriesList() {
   categories.sort((a, b) => (a._order || 0) - (b._order || 0));
 }
 
+function mapCategoryDoc(d, idx) {
+  const data = d.data();
+  let groups = Array.isArray(data.filterGroups) ? [...data.filterGroups] : [];
+  if (data.filterLabel && !groups.includes(data.filterLabel)) groups.unshift(data.filterLabel);
+  const ts = data.createdAt && data.createdAt.toMillis ? data.createdAt.toMillis() : (1000000 + idx * 10);
+  const ord = typeof data.sortOrder === "number" ? data.sortOrder : ts;
+  return { id: d.id, ...data, filterGroups: groups, offSeason: !!data.offSeason, _order: ord };
+}
+
+function mapProductDoc(d, idx, total) {
+  const data = d.data();
+  const createdMs = data.createdAt && data.createdAt.toMillis ? data.createdAt.toMillis() : 0;
+  const ts = createdMs || (1000000 + (total - idx) * 10);
+  const ord = typeof data.sortOrder === "number" ? data.sortOrder : ts;
+  return { id: d.id, ...data, _order: ord, _createdMs: createdMs };
+}
+
+function mapVoucherDoc(d) {
+  const data = d.data();
+  return {
+    id: d.id, ...data,
+    discType: data.discType || "pct",
+    maxUses: Number(data.maxUses) || 0,
+    firstTimeOnly: !!data.firstTimeOnly
+  };
+}
+
 async function loadCategories() {
   const snap = await db.collection("categories").get();
-  categories = snap.docs.map((d, idx) => {
-    const data = d.data();
-    let groups = Array.isArray(data.filterGroups) ? [...data.filterGroups] : [];
-    if (data.filterLabel && !groups.includes(data.filterLabel)) groups.unshift(data.filterLabel);
-    const ts = data.createdAt && data.createdAt.toMillis ? data.createdAt.toMillis() : (1000000 + idx * 10);
-    const ord = typeof data.sortOrder === "number" ? data.sortOrder : ts;
-    return { id: d.id, ...data, filterGroups: groups, offSeason: !!data.offSeason, _order: ord };
-  });
+  categories = snap.docs.map((d, idx) => mapCategoryDoc(d, idx)).filter(c => !c.deleted);
   sortCategoriesList();
   renderAdminCategories(); populateCategoryDropdowns();
 }
 
 async function loadSubCategories() {
   const snap = await db.collection("subcategories").orderBy("createdAt", "asc").get();
-  subCategories = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  subCategories = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(s => !s.deleted);
   renderAdminFilterConfig(); renderProdFilterInputs(getCurrentProdFilters());
 }
 
@@ -766,29 +900,98 @@ function sortProductsList() {
 async function loadProducts() {
   const snap = await db.collection("products").get();
   const total = snap.docs.length;
-  products = snap.docs.map((d, idx) => {
-    const data = d.data();
-    const createdMs = data.createdAt && data.createdAt.toMillis ? data.createdAt.toMillis() : 0;
-    const ts = createdMs || (1000000 + (total - idx) * 10);
-    const ord = typeof data.sortOrder === "number" ? data.sortOrder : ts;
-    return { id: d.id, ...data, _order: ord, _createdMs: createdMs };
-  });
+  products = snap.docs.map((d, idx) => mapProductDoc(d, idx, total)).filter(p => !p.deleted);
   sortProductsList();
   renderAdminProducts();
 }
 
 async function loadVouchers() {
   const snap = await db.collection("vouchers").get();
-  vouchers = snap.docs.map(d => {
-    const data = d.data();
-    return {
-      id: d.id, ...data,
-      discType: data.discType || "pct",
-      maxUses: Number(data.maxUses) || 0,
-      firstTimeOnly: !!data.firstTimeOnly
-    };
-  });
+  vouchers = snap.docs.map(d => mapVoucherDoc(d)).filter(v => !v.deleted);
   renderAdminVouchers();
+}
+
+async function deltaSyncCatalog(sinceMs) {
+  try {
+    const safeSince = Math.max(0, sinceMs - 15000);
+    const tasks = [];
+
+    if ((Number(appSettings.lastProdUpdate) || 0) > safeSince) {
+      tasks.push(
+        db.collection("products").where("updatedAtMs", ">", safeSince).get().then(snap => {
+          snap.docs.forEach((d, idx) => {
+            const item = mapProductDoc(d, idx, snap.docs.length);
+            const existingIdx = products.findIndex(x => x.id === item.id);
+            if (item.deleted) {
+              if (existingIdx !== -1) products.splice(existingIdx, 1);
+            } else if (existingIdx !== -1) {
+              products[existingIdx] = item;
+            } else {
+              products.unshift(item);
+            }
+          });
+          sortProductsList();
+        })
+      );
+    }
+
+    if ((Number(appSettings.lastCatUpdate) || 0) > safeSince) {
+      tasks.push(
+        db.collection("categories").get().then(snap => {
+          categories = snap.docs.map((d, idx) => mapCategoryDoc(d, idx)).filter(c => !c.deleted);
+          sortCategoriesList();
+        }),
+        db.collection("subcategories").orderBy("createdAt", "asc").get().then(snap => {
+          subCategories = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(s => !s.deleted);
+        })
+      );
+    }
+
+    if ((Number(appSettings.lastVoucherUpdate) || 0) > safeSince) {
+      tasks.push(
+        db.collection("vouchers").get().then(snap => {
+          vouchers = snap.docs.map(d => mapVoucherDoc(d)).filter(v => !v.deleted);
+        })
+      );
+    }
+
+    if (tasks.length) {
+      await Promise.all(tasks);
+      renderAdminCategories();
+      renderAdminFilterConfig();
+      renderAdminProducts();
+      renderAdminVouchers();
+      populateCategoryDropdowns();
+    }
+    await saveCatalogSnapshotToCache();
+  } catch (e) {
+    console.warn("Delta sync fallback:", e);
+  }
+}
+
+async function refreshAllAdminData() {
+  const btn = document.getElementById("adminRefreshBtn");
+  if (btn) { btn.innerText = "Syncing..."; btn.disabled = true; }
+  try {
+    const setDoc = await db.collection("settings").doc("config").get();
+    if (setDoc.exists) appSettings = { ...appSettings, ...setDoc.data() };
+    if (!Array.isArray(appSettings.adBanners)) {
+      appSettings.adBanners = appSettings.adBanner ? [appSettings.adBanner] : [];
+    }
+    if (!Array.isArray(appSettings.adminDevices)) {
+      appSettings.adminDevices = [];
+    }
+    applySettingsUI();
+    await Promise.all([loadCategories(), loadSubCategories(), loadProducts(), loadVouchers()]);
+    populateCategoryDropdowns();
+    await saveCatalogSnapshotToCache();
+    await loadAdminRecords(true);
+    showToast("✓ All data refreshed!");
+  } catch (e) {
+    alert("Refresh Error: " + e.message);
+  } finally {
+    if (btn) { btn.innerText = "🔄 Refresh"; btn.disabled = false; }
+  }
 }
 
 async function loadAdminRecords(showFeedback) {
@@ -1251,6 +1454,7 @@ async function enterAdminPanel(isAuto) {
   document.getElementById("myOrdersBtn").classList.add("hidden");
   document.getElementById("noticeBellBtn").classList.add("hidden");
   document.getElementById("adminView").classList.remove("hidden");
+  document.getElementById("adminRefreshBtn").classList.remove("hidden");
   document.getElementById("logoutBtn").classList.remove("hidden");
   try {
     if (isAuto) registerCurrentAdminDevice().catch(() => {});
@@ -1329,7 +1533,7 @@ function logout() {
   unlockedCatIds = new Set(); activeCategory = null; activeFilters = {}; newOnlyFilter = false;
   activeMobile = ""; cart = {}; appliedVouchers = []; customerPastOrders = null;
   document.getElementById("hdrSub").innerText = "Wholesale Digital Catalog";
-  ["appSplash","customerView","adminView","cartBar","logoutBtn","myOrdersBtn","noticeBellBtn","legacyPinModal"].forEach(id => document.getElementById(id).classList.add("hidden"));
+  ["appSplash","customerView","adminView","cartBar","adminRefreshBtn","logoutBtn","myOrdersBtn","noticeBellBtn","legacyPinModal"].forEach(id => document.getElementById(id).classList.add("hidden"));
   document.getElementById("loginView").classList.remove("hidden");
 }
 
@@ -1917,8 +2121,9 @@ function switchTab(tab) {
     document.getElementById("admin" + cap + "Tab").classList.toggle("hidden", t !== tab);
     document.getElementById("tab" + cap + "Btn").classList.toggle("active", t === tab);
   });
-  if (tab === "ord" || tab === "usr") loadAdminRecords(true);
-  if (tab === "off") { loadVouchers(); renderAdminBanners(); }
+  if (tab === "ord") renderAdminOrders();
+  if (tab === "usr") renderAdminCustomers();
+  if (tab === "off") { renderAdminVouchers(); renderAdminBanners(); }
   if (tab === "set") renderAdminDevices();
 }
 
@@ -2040,7 +2245,8 @@ async function saveProduct() {
   const btn = document.getElementById("saveProdBtn"); btn.innerText = "Saving..."; btn.disabled = true;
   try {
     const catObj = categories.find(c => c.id === categoryId);
-    const data = { name, description, categoryId, categoryName: catObj ? catObj.name : "", filters, subCategory, buyRate, marginPct, price, moq };
+    const nowMs = Date.now();
+    const data = { name, description, categoryId, categoryName: catObj ? catObj.name : "", filters, subCategory, buyRate, marginPct, price, moq, updatedAtMs: nowMs, deleted: false };
     if (upProdImg) data.image = upProdImg;
     if (editId) {
       await db.collection("products").doc(editId).update(data);
@@ -2049,16 +2255,20 @@ async function saveProduct() {
       sortProductsList();
       renderAdminProducts();
       resetProdForm(true);
+      bumpCatalogMeta("lastProdUpdate");
+      saveCatalogSnapshotToCache();
       showToast("✓ Product updated!");
     } else {
       const topOrd = getNextTopOrder();
       data.sortOrder = topOrd;
       data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
       const docRef = await db.collection("products").add(data);
-      products.unshift({ id: docRef.id, ...data, _order: topOrd, _createdMs: Date.now() });
+      products.unshift({ id: docRef.id, ...data, _order: topOrd, _createdMs: nowMs });
       sortProductsList();
       renderAdminProducts();
       resetProdForm(false);
+      bumpCatalogMeta("lastProdUpdate");
+      saveCatalogSnapshotToCache();
 
       if (photoQueue.length > 0 && queueIdx + 1 < photoQueue.length) {
         queueIdx++;
@@ -2084,7 +2294,9 @@ async function moveProductTop(id) {
   sortProductsList();
   renderAdminProducts();
   showToast("✓ Moved to Top!");
-  await db.collection("products").doc(id).update({ sortOrder: topOrd });
+  await db.collection("products").doc(id).update({ sortOrder: topOrd, updatedAtMs: Date.now() });
+  bumpCatalogMeta("lastProdUpdate");
+  saveCatalogSnapshotToCache();
 }
 
 async function moveProductStep(id, dir) {
@@ -2109,17 +2321,23 @@ async function moveProductStep(id, dir) {
   itemB._order = ordB; itemB.sortOrder = ordB;
   sortProductsList();
   renderAdminProducts();
+  const nowMs = Date.now();
   await Promise.all([
-    db.collection("products").doc(itemA.id).update({ sortOrder: ordA }),
-    db.collection("products").doc(itemB.id).update({ sortOrder: ordB })
+    db.collection("products").doc(itemA.id).update({ sortOrder: ordA, updatedAtMs: nowMs }),
+    db.collection("products").doc(itemB.id).update({ sortOrder: ordB, updatedAtMs: nowMs })
   ]);
+  bumpCatalogMeta("lastProdUpdate");
+  saveCatalogSnapshotToCache();
 }
 
 async function toggleStock(id, curOos) {
-  await db.collection("products").doc(id).update({ outOfStock: !curOos });
+  const nowMs = Date.now();
+  await db.collection("products").doc(id).update({ outOfStock: !curOos, updatedAtMs: nowMs });
   const p = products.find(x => x.id === id);
-  if (p) p.outOfStock = !curOos;
+  if (p) { p.outOfStock = !curOos; p.updatedAtMs = nowMs; }
   renderAdminProducts();
+  bumpCatalogMeta("lastProdUpdate");
+  saveCatalogSnapshotToCache();
 }
 
 function fillProdFormFromObj(p, isEdit) {
@@ -2177,9 +2395,15 @@ function resetProdForm(clearAll) {
 
 async function deleteProduct(id) {
   if (confirm("Delete this product?")) {
-    await db.collection("products").doc(id).delete();
+    await db.collection("products").doc(id).update({
+      deleted: true,
+      image: "",
+      updatedAtMs: Date.now()
+    });
     products = products.filter(p => p.id !== id);
     renderAdminProducts();
+    bumpCatalogMeta("lastProdUpdate");
+    saveCatalogSnapshotToCache();
     showToast("✓ Deleted");
   }
 }
@@ -2254,7 +2478,7 @@ async function saveCategory() {
   const sortOrder = Math.max(Date.now(), maxOrd) + 100;
   await db.collection("categories").add({ name, password, offSeason: false, sortOrder, filterGroups: [], createdAt: firebase.firestore.FieldValue.serverTimestamp() });
   document.getElementById("catName").value = ""; document.getElementById("catPass").value = "";
-  await loadCategories(); showToast("✓ Category saved!");
+  await loadCategories(); bumpCatalogMeta("lastCatUpdate"); saveCatalogSnapshotToCache(); showToast("✓ Category saved!");
 }
 
 async function moveCategoryStep(id, dir) {
@@ -2283,6 +2507,8 @@ async function moveCategoryStep(id, dir) {
     db.collection("categories").doc(catA.id).update({ sortOrder: ordA }),
     db.collection("categories").doc(catB.id).update({ sortOrder: ordB })
   ]);
+  bumpCatalogMeta("lastCatUpdate");
+  saveCatalogSnapshotToCache();
 }
 
 async function toggleCategorySeason(id, curOff) {
@@ -2291,11 +2517,13 @@ async function toggleCategorySeason(id, curOff) {
   const c = categories.find(x => x.id === id);
   if (c) c.offSeason = nextOff;
   renderAdminCategories();
+  bumpCatalogMeta("lastCatUpdate");
+  saveCatalogSnapshotToCache();
   showToast(nextOff ? "⏸️ Set to Off-Season" : "🟢 Category is Live!");
 }
 
-async function editCatPass(id, oldPass) { const np = prompt("Enter New Password:", oldPass); if (np && np.trim()) { await db.collection("categories").doc(id).update({ password: np.trim() }); await loadCategories(); } }
-async function deleteCategory(id) { if (confirm("Delete this category?")) { await db.collection("categories").doc(id).delete(); await loadCategories(); } }
+async function editCatPass(id, oldPass) { const np = prompt("Enter New Password:", oldPass); if (np && np.trim()) { await db.collection("categories").doc(id).update({ password: np.trim() }); await loadCategories(); bumpCatalogMeta("lastCatUpdate"); saveCatalogSnapshotToCache(); } }
+async function deleteCategory(id) { if (confirm("Delete this category?")) { await db.collection("categories").doc(id).delete(); await loadCategories(); bumpCatalogMeta("lastCatUpdate"); saveCatalogSnapshotToCache(); } }
 function copyCategoryLink(name, pass) {
   const url = window.location.origin + window.location.pathname;
   navigator.clipboard.writeText(`*${appSettings.shopName} - ${name} Catalog*\nLink: ${url}?pass=${encodeURIComponent(pass)}\nRate Password: ${pass}`).then(() => showToast("✓ Link & Password copied!"));
@@ -2375,6 +2603,8 @@ async function saveSubCategory() {
   await db.collection("subcategories").add({ name, categoryId: catId, groupName: gName, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
   document.getElementById("subCatName").value = "";
   await loadSubCategories();
+  bumpCatalogMeta("lastCatUpdate");
+  saveCatalogSnapshotToCache();
   document.getElementById("filterConfigGroup").value = gName;
   showToast(`✓ Added to ${gName}!`);
 }
@@ -2383,6 +2613,8 @@ async function deleteSubCategory(id) {
   const curGrp = document.getElementById("filterConfigGroup").value;
   await db.collection("subcategories").doc(id).delete();
   await loadSubCategories();
+  bumpCatalogMeta("lastCatUpdate");
+  saveCatalogSnapshotToCache();
   if (curGrp) document.getElementById("filterConfigGroup").value = curGrp;
 }
 
@@ -2521,10 +2753,10 @@ async function saveVoucher() {
   document.getElementById("vDisc").value = "";
   document.getElementById("vMaxUses").value = "0";
   document.getElementById("vFirstTime").checked = false;
-  await loadVouchers(); showToast("✓ Voucher saved!");
+  await loadVouchers(); bumpCatalogMeta("lastVoucherUpdate"); saveCatalogSnapshotToCache(); showToast("✓ Voucher saved!");
 }
 
-async function deleteVoucher(id) { if (confirm("Delete voucher?")) { await db.collection("vouchers").doc(id).delete(); await loadVouchers(); } }
+async function deleteVoucher(id) { if (confirm("Delete voucher?")) { await db.collection("vouchers").doc(id).delete(); await loadVouchers(); bumpCatalogMeta("lastVoucherUpdate"); saveCatalogSnapshotToCache(); } }
 
 function renderAdminVouchers() {
   document.getElementById("adminVoucherList").innerHTML = vouchers.length ? vouchers.map(v => {
