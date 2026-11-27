@@ -243,7 +243,6 @@ label{display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#3741
   <div><div style="font-size:12px;opacity:.85;"><span id="cartPcs">0</span> Pieces Selected</div><div style="font-size:16px;font-weight:700;">Total: ₹<span id="cartTotal">0</span></div></div>
   <button onclick="openCartModal()">View Order &gt;</button>
 </div>
-
 <!-- 3. ADMIN PANEL -->
 <div id="adminView" class="container hidden">
   <div class="tabs">
@@ -616,7 +615,6 @@ label{display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#3741
 
 <div id="zoomModal" class="modal-bg hidden" onclick="this.classList.add('hidden')"><img id="zoomImg" class="img-zoom" /></div>
 <div id="toastMsg" class="toast hidden"></div>
-
 <script>
 // --- PWA SERVICE WORKER & UNIVERSAL AUTO-LOGIN (CHROME + INSTALLED APP) ---
 function isInstalledApp() {
@@ -840,4 +838,2671 @@ async function initApp() {
     const setDoc = await db.collection("settings").doc("config").get();
     if (setDoc.exists) appSettings = { ...appSettings, ...setDoc.data() };
     if (!Array.isArray(appSettings.adBanners)) {
-      appSettings.adBanners = appSettings.adBanner ?
+      appSettings.adBanners = appSettings.adBanner ? [appSettings.adBanner] : [];
+    }
+    if (!Array.isArray(appSettings.adminDevices)) {
+      appSettings.adminDevices = [];
+    }
+    if (!Array.isArray(appSettings.salesmen)) {
+      appSettings.salesmen = [];
+    }
+    applySettingsUI();
+    updateOfflineOrdersBanner();
+
+    const cached = await getSmartCache("catalog_snapshot");
+    const hasValidCache = cached && cached.schema === RT_SCHEMA_VER && Array.isArray(cached.products) && cached.products.length > 0 && Array.isArray(cached.categories) && cached.categories.length > 0;
+    const serverLastUpd = Number(appSettings.lastCatalogUpdate) || 0;
+
+    if (hasValidCache && !savedAdminInitial) {
+      categories = cached.categories;
+      subCategories = cached.subCategories || [];
+      products = cached.products;
+      vouchers = cached.vouchers || [];
+      sortCategoriesList();
+      sortProductsList();
+      renderAdminCategories();
+      renderAdminFilterConfig();
+      renderAdminProducts();
+      renderAdminVouchers();
+      populateCategoryDropdowns();
+
+      if (serverLastUpd > (cached.lastSyncMs || 0)) {
+        await deltaSyncCatalog(cached.lastSyncMs || 0);
+      }
+    } else {
+      await Promise.all([loadCategories(), loadSubCategories(), loadProducts(), loadVouchers()]);
+      populateCategoryDropdowns();
+      await saveCatalogSnapshotToCache();
+    }
+
+    if (savedAdminInitial) {
+      const myDevId = getDeviceId();
+      const wasSynced = localStorage.getItem("rt_admin_dev_synced") === "1";
+      if (wasSynced && !appSettings.adminDevices.some(d => d.id === myDevId)) {
+        localStorage.removeItem("rt_admin_logged_in");
+        localStorage.removeItem("rt_admin_dev_synced");
+        document.getElementById("appSplash").classList.add("hidden");
+        document.getElementById("loginView").classList.remove("hidden");
+        document.getElementById("loginErr").innerText = "Admin session was logged out from another device.";
+      } else {
+        await enterAdminPanel(true);
+      }
+      return;
+    }
+
+    const savedSalesPin = localStorage.getItem("rt_salesman_pin");
+    if (savedSalesPin) {
+      const sm = (appSettings.salesmen || []).find(s => String(s.pin) === String(savedSalesPin));
+      if (sm) {
+        enterSalesmanMode(sm.name);
+        return;
+      } else {
+        localStorage.removeItem("rt_salesman_pin");
+        localStorage.removeItem("rt_salesman_name");
+      }
+    }
+
+    if (savedMobInitial && savedMobInitial.length === 10) {
+      if (appSettings.catalogOn === false) {
+        document.getElementById("appSplash").classList.add("hidden");
+        document.getElementById("loginView").classList.remove("hidden");
+        document.getElementById("loginErr").innerText = "Catalog is currently closed.";
+      } else {
+        const ok = await loginCustomerByMobile(savedMobInitial, "", true);
+        if (!ok) {
+          document.getElementById("appSplash").classList.add("hidden");
+          document.getElementById("loginView").classList.remove("hidden");
+        }
+      }
+    }
+  } catch (e) {
+    document.getElementById("appSplash").classList.add("hidden");
+    document.getElementById("loginView").classList.remove("hidden");
+    alert("Database Error: " + e.message);
+  }
+}
+
+function applySettingsUI() {
+  document.getElementById("hdrShopName").innerText = appSettings.shopName;
+  document.getElementById("loginShopTitle").innerText = appSettings.shopName;
+  document.getElementById("splashShopTitle").innerText = appSettings.shopName;
+  document.getElementById("modalConsignor").innerText = appSettings.shopName;
+  document.getElementById("noticeModalShop").innerText = appSettings.shopName;
+  document.getElementById("setShopName").value = appSettings.shopName;
+  document.getElementById("setWhatsapp").value = appSettings.whatsapp || "";
+  document.getElementById("setAdminPin").value = appSettings.adminPin || "7860";
+  document.getElementById("setMinOrderAmt").value = appSettings.minOrderAmt || "";
+  document.getElementById("setNoticeText").value = appSettings.noticeText || "";
+  document.getElementById("ctrlCatalogOn").checked = appSettings.catalogOn !== false;
+  document.getElementById("ctrlStrictSet").checked = appSettings.strictSet !== false;
+  try {
+    localStorage.setItem("rt_shop_name", appSettings.shopName || "Raza Traders");
+    if (appSettings.logo) localStorage.setItem("rt_shop_logo", appSettings.logo);
+  } catch (e) {}
+  if (appSettings.logo) {
+    const lg = document.getElementById("loginLogoImg"); lg.src = appSettings.logo; lg.classList.remove("hidden");
+    const sl = document.getElementById("splashLogoImg"); sl.src = appSettings.logo; sl.classList.remove("hidden");
+    const lp = document.getElementById("logoPreview"); lp.src = appSettings.logo; lp.classList.remove("hidden");
+  }
+  renderAdminBanners();
+  renderAdminDevices();
+  renderAdminSalesmen();
+}
+
+function setAuthMode(mode) {
+  authMode = mode;
+  document.getElementById("modeLoginBtn").classList.toggle("active", mode === "login");
+  document.getElementById("modeSignupBtn").classList.toggle("active", mode === "signup");
+  document.getElementById("signupNameBox").classList.toggle("hidden", mode === "login");
+  document.getElementById("custPinLabel").innerText = mode === "login" ? "4-Digit Secret PIN (Required)" : "Create 4-Digit Secret PIN (Required)";
+  document.getElementById("custPinHint").classList.toggle("hidden", mode === "signup");
+  document.getElementById("loginBtn").innerText = mode === "login" ? "Login" : "Sign Up & Open Catalog";
+  document.getElementById("loginErr").innerText = "";
+}
+
+function sortCategoriesList() {
+  categories.sort((a, b) => (a._order || 0) - (b._order || 0));
+}
+
+function mapCategoryDoc(d, idx) {
+  const data = d.data();
+  let groups = Array.isArray(data.filterGroups) ? [...data.filterGroups] : [];
+  if (data.filterLabel && !groups.includes(data.filterLabel)) groups.unshift(data.filterLabel);
+  const ts = data.createdAt && data.createdAt.toMillis ? data.createdAt.toMillis() : (1000000 + idx * 10);
+  const ord = typeof data.sortOrder === "number" ? data.sortOrder : ts;
+  return { id: d.id, ...data, filterGroups: groups, offSeason: !!data.offSeason, _order: ord };
+}
+
+function mapProductDoc(d, idx, total) {
+  const data = d.data();
+  const createdMs = data.createdAt && data.createdAt.toMillis ? data.createdAt.toMillis() : 0;
+  const ts = createdMs || (1000000 + (total - idx) * 10);
+  const ord = typeof data.sortOrder === "number" ? data.sortOrder : ts;
+  return { id: d.id, ...data, _order: ord, _createdMs: createdMs };
+}
+
+function mapVoucherDoc(d) {
+  const data = d.data();
+  return {
+    id: d.id, ...data,
+    discType: data.discType || "pct",
+    maxUses: Number(data.maxUses) || 0,
+    firstTimeOnly: !!data.firstTimeOnly
+  };
+}
+
+async function loadCategories() {
+  const snap = await db.collection("categories").get();
+  categories = snap.docs.map((d, idx) => mapCategoryDoc(d, idx)).filter(c => !c.deleted);
+  sortCategoriesList();
+  renderAdminCategories(); populateCategoryDropdowns();
+}
+
+async function loadSubCategories() {
+  const snap = await db.collection("subcategories").orderBy("createdAt", "asc").get();
+  subCategories = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(s => !s.deleted);
+  renderAdminFilterConfig(); renderProdFilterInputs(getCurrentProdFilters());
+}
+
+function sortProductsList() {
+  products.sort((a, b) => (b._order || 0) - (a._order || 0));
+}
+
+async function loadProducts() {
+  const snap = await db.collection("products").get();
+  const total = snap.docs.length;
+  products = snap.docs.map((d, idx) => mapProductDoc(d, idx, total)).filter(p => !p.deleted);
+  sortProductsList();
+  renderAdminProducts();
+}
+
+async function loadVouchers() {
+  const snap = await db.collection("vouchers").get();
+  vouchers = snap.docs.map(d => mapVoucherDoc(d)).filter(v => !v.deleted);
+  renderAdminVouchers();
+}
+
+async function deltaSyncCatalog(sinceMs) {
+  try {
+    const safeSince = Math.max(0, sinceMs - 15000);
+    const tasks = [];
+
+    if ((Number(appSettings.lastProdUpdate) || 0) > safeSince) {
+      tasks.push(
+        db.collection("products").where("updatedAtMs", ">", safeSince).get().then(snap => {
+          snap.docs.forEach((d, idx) => {
+            const item = mapProductDoc(d, idx, snap.docs.length);
+            const existingIdx = products.findIndex(x => x.id === item.id);
+            if (item.deleted) {
+              if (existingIdx !== -1) products.splice(existingIdx, 1);
+            } else if (existingIdx !== -1) {
+              products[existingIdx] = item;
+            } else {
+              products.unshift(item);
+            }
+          });
+          sortProductsList();
+        })
+      );
+    }
+
+    if ((Number(appSettings.lastCatUpdate) || 0) > safeSince) {
+      tasks.push(
+        db.collection("categories").get().then(snap => {
+          categories = snap.docs.map((d, idx) => mapCategoryDoc(d, idx)).filter(c => !c.deleted);
+          sortCategoriesList();
+        }),
+        db.collection("subcategories").orderBy("createdAt", "asc").get().then(snap => {
+          subCategories = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(s => !s.deleted);
+        })
+      );
+    }
+
+    if ((Number(appSettings.lastVoucherUpdate) || 0) > safeSince) {
+      tasks.push(
+        db.collection("vouchers").get().then(snap => {
+          vouchers = snap.docs.map(d => mapVoucherDoc(d)).filter(v => !v.deleted);
+        })
+      );
+    }
+
+    if (tasks.length) {
+      await Promise.all(tasks);
+      renderAdminCategories();
+      renderAdminFilterConfig();
+      renderAdminProducts();
+      renderAdminVouchers();
+      populateCategoryDropdowns();
+    }
+    await saveCatalogSnapshotToCache();
+  } catch (e) {
+    console.warn("Delta sync fallback:", e);
+  }
+}
+
+async function refreshAllAdminData() {
+  const btn = document.getElementById("adminRefreshBtn");
+  if (btn) { btn.innerText = "Syncing..."; btn.disabled = true; }
+  try {
+    const setDoc = await db.collection("settings").doc("config").get();
+    if (setDoc.exists) appSettings = { ...appSettings, ...setDoc.data() };
+    if (!Array.isArray(appSettings.adBanners)) {
+      appSettings.adBanners = appSettings.adBanner ? [appSettings.adBanner] : [];
+    }
+    if (!Array.isArray(appSettings.adminDevices)) {
+      appSettings.adminDevices = [];
+    }
+    if (!Array.isArray(appSettings.salesmen)) {
+      appSettings.salesmen = [];
+    }
+    applySettingsUI();
+    updateOfflineOrdersBanner();
+    await Promise.all([loadCategories(), loadSubCategories(), loadProducts(), loadVouchers()]);
+    populateCategoryDropdowns();
+    await saveCatalogSnapshotToCache();
+    await loadAdminRecords(true);
+    showToast("✓ All data refreshed!");
+  } catch (e) {
+    alert("Refresh Error: " + e.message);
+  } finally {
+    if (btn) { btn.innerText = "🔄 Refresh"; btn.disabled = false; }
+  }
+}
+
+async function loadAdminRecords(showFeedback) {
+  const ordListEl = document.getElementById("adminOrdList");
+  const custListEl = document.getElementById("adminCustList");
+  if (showFeedback) {
+    ordListEl.innerHTML = `<p style="color:var(--p);font-size:12px;">Loading orders...</p>`;
+    custListEl.innerHTML = `<p style="color:var(--p);font-size:12px;">Loading users...</p>`;
+  }
+
+  let ordOk = false, custOk = false;
+  try {
+    const oSnap = await db.collection("orders").orderBy("createdAt", "desc").limit(150).get();
+    orders = oSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    document.getElementById("totalOrdCount").innerText = orders.length;
+    ordOk = true;
+  } catch (e) {
+    ordListEl.innerHTML = `<p style="color:var(--d);font-size:12px;">Slow network. Tap Refresh to reload orders.</p>`;
+  }
+
+  try {
+    const cSnap = await db.collection("customers").get();
+    customers = cSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    document.getElementById("totalCustCount").innerText = customers.length;
+    custOk = true;
+  } catch (e) {
+    custListEl.innerHTML = `<p style="color:var(--d);font-size:12px;">Slow network. Tap Refresh to reload users.</p>`;
+  }
+
+  if (ordOk) renderAdminOrders();
+  if (custOk) renderAdminCustomers();
+}
+
+// --- UNIVERSAL AUTO-SAVE UNLOCKED CATEGORIES & CART (CHROME + APP) ---
+function saveUnlockedCategories() {
+  if (!activeMobile) return;
+  const saved = {};
+  unlockedCatIds.forEach(id => {
+    const cat = categories.find(c => c.id === id);
+    if (cat) saved[id] = (cat.password || "").trim();
+  });
+  try { localStorage.setItem("rt_unlocked_" + activeMobile, JSON.stringify(saved)); } catch (e) {}
+}
+
+function restoreUnlockedCategories(mob) {
+  unlockedCatIds = new Set();
+  if (!mob) return;
+  try {
+    const saved = JSON.parse(localStorage.getItem("rt_unlocked_" + mob) || "{}");
+    categories.forEach(c => {
+      if (saved[c.id] && (c.password || "").trim().toLowerCase() === String(saved[c.id]).trim().toLowerCase()) {
+        unlockedCatIds.add(c.id);
+      }
+    });
+  } catch (e) {}
+}
+
+function saveCustomerCart() {
+  if (!activeMobile) return;
+  try { localStorage.setItem("rt_cart_" + activeMobile, JSON.stringify(cart)); } catch (e) {}
+}
+
+function restoreCustomerCart(mob) {
+  cart = {};
+  if (!mob) return;
+  try {
+    const saved = JSON.parse(localStorage.getItem("rt_cart_" + mob) || "{}");
+    const stepStrict = appSettings.strictSet !== false;
+    for (const pid in saved) {
+      const p = products.find(x => x.id === pid);
+      if (!p || p.outOfStock) continue;
+      const cat = categories.find(c => c.id === p.categoryId);
+      if (cat && cat.offSeason) continue;
+      const moq = Number(p.moq) || 1;
+      const q = Number(saved[pid]) || 0;
+      if (q > 0) cart[pid] = stepStrict ? Math.max(moq, Math.ceil(q / moq) * moq) : Math.max(moq, q);
+    }
+  } catch (e) {}
+}
+
+// --- 4-DIGIT CUSTOMER PIN LOGIN & SIGNUP ---
+async function loginCustomerByMobile(mob, enteredPin, isAuto) {
+  const errEl = document.getElementById("loginErr");
+  const cRef = db.collection("customers").doc(mob);
+  const cDoc = await cRef.get();
+
+  if (cDoc.exists && cDoc.data().blocked === true) {
+    localStorage.removeItem("rt_app_mobile");
+    localStorage.removeItem("rt_app_pin");
+    errEl.innerText = "Your number is blocked. Please contact Raza Traders.";
+    return false;
+  }
+
+  let effectivePin = "";
+  let needsLegacyPinSetup = false;
+
+  if (isAuto) {
+    if (!cDoc.exists) {
+      localStorage.removeItem("rt_app_mobile");
+      localStorage.removeItem("rt_app_pin");
+      return false;
+    }
+    const dbPin = String(cDoc.data().pin || "").trim();
+    const savedPin = String(localStorage.getItem("rt_app_pin") || "").trim();
+    if (dbPin) {
+      if (dbPin !== savedPin) {
+        localStorage.removeItem("rt_app_mobile");
+        localStorage.removeItem("rt_app_pin");
+        errEl.innerText = "Your PIN was updated. Please login with your new 4-digit PIN.";
+        return false;
+      }
+      effectivePin = dbPin;
+    } else {
+      needsLegacyPinSetup = true;
+    }
+    activeCustName = cDoc.data().name || "Customer";
+    cRef.set({ lastSeen: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true }).catch(() => {});
+  } else if (authMode === "login") {
+    if (!cDoc.exists) {
+      errEl.innerText = "Number not registered. Please tap 'New Sign Up' first.";
+      return false;
+    }
+    if (!/^\d{4}$/.test(enteredPin)) {
+      errEl.innerText = "Please enter your 4-digit Secret PIN.";
+      return false;
+    }
+    const dbPin = String(cDoc.data().pin || "").trim();
+    if (dbPin) {
+      if (dbPin !== enteredPin) {
+        errEl.innerText = "Incorrect 4-digit PIN! Contact Raza Traders if you forgot your PIN.";
+        return false;
+      }
+      effectivePin = dbPin;
+      cRef.set({ lastSeen: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true }).catch(() => {});
+    } else {
+      effectivePin = enteredPin;
+      await cRef.set({ pin: enteredPin, lastSeen: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+      showToast("✓ 4-Digit PIN set for your account!");
+    }
+    activeCustName = cDoc.data().name || "Customer";
+  } else {
+    if (!/^\d{4}$/.test(enteredPin)) {
+      errEl.innerText = "Please create a 4-digit numeric PIN (Ex: 1234).";
+      return false;
+    }
+    if (cDoc.exists && cDoc.data().pin) {
+      errEl.innerText = "This number is already registered! Please tap 'Login' and enter your 4-digit PIN.";
+      return false;
+    }
+    const sName = document.getElementById("custSignupName").value.trim() || "Customer";
+    activeCustName = sName;
+    effectivePin = enteredPin;
+    await cRef.set({
+      mobile: mob,
+      name: sName,
+      pin: enteredPin,
+      blocked: false,
+      createdAt: (cDoc.exists && cDoc.data().createdAt) ? cDoc.data().createdAt : firebase.firestore.FieldValue.serverTimestamp(),
+      lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+  }
+
+  activeMobile = mob;
+  activeFilters = {};
+  newOnlyFilter = false;
+  appliedVouchers = [];
+  customerPastOrders = null;
+  restoreUnlockedCategories(mob);
+  restoreCustomerCart(mob);
+
+  try {
+    localStorage.setItem("rt_app_mobile", mob);
+    if (effectivePin) localStorage.setItem("rt_app_pin", effectivePin);
+  } catch (e) {}
+
+  const urlPass = new URLSearchParams(window.location.search).get("pass");
+  if (urlPass) {
+    const m = categories.find(c => (c.password || "").trim().toLowerCase() === urlPass.trim().toLowerCase());
+    if (m) { unlockedCatIds.add(m.id); activeCategory = m; saveUnlockedCategories(); }
+  }
+  if (!activeCategory && categories.length) {
+    activeCategory = categories.find(c => unlockedCatIds.has(c.id) && !c.offSeason) || categories.find(c => !c.offSeason) || categories[0];
+  }
+
+  const ordMobInp = document.getElementById("custMobileOrder");
+  ordMobInp.value = mob;
+  ordMobInp.readOnly = true;
+  document.getElementById("custName").value = activeCustName === "Customer" ? "" : activeCustName;
+  document.getElementById("hdrSub").innerText = activeCustName + " (" + mob + ")";
+  document.getElementById("appSplash").classList.add("hidden");
+  document.getElementById("loginView").classList.add("hidden");
+  document.getElementById("customerView").classList.remove("hidden");
+  document.getElementById("myOrdersBtn").classList.remove("hidden");
+  document.getElementById("logoutBtn").classList.remove("hidden");
+  setupCustomerNoticeUI();
+  updateFilterBtnUI(); renderInlineAd(); renderCatPills(); renderCustomerProducts(); updateCartBar();
+
+  if (needsLegacyPinSetup) {
+    document.getElementById("legacyNewPinInp").value = "";
+    document.getElementById("legacyPinModal").classList.remove("hidden");
+  }
+  return true;
+}
+
+async function saveLegacyCustomerPin() {
+  const pin = document.getElementById("legacyNewPinInp").value.replace(/\D/g, "");
+  if (pin.length !== 4) {
+    alert("Please enter a valid 4-digit PIN (Ex: 1234).");
+    return;
+  }
+  const btn = document.getElementById("saveLegacyPinBtn");
+  btn.innerText = "Saving..."; btn.disabled = true;
+  try {
+    await db.collection("customers").doc(activeMobile).set({ pin }, { merge: true });
+    localStorage.setItem("rt_app_pin", pin);
+    document.getElementById("legacyPinModal").classList.add("hidden");
+    showToast("✓ 4-Digit PIN saved!");
+  } catch (e) {
+    alert("Error: " + e.message);
+  } finally {
+    btn.innerText = "Save PIN & Continue"; btn.disabled = false;
+  }
+}
+
+async function handleCustomerAuth() {
+  const errEl = document.getElementById("loginErr");
+  if (appSettings.catalogOn === false) { errEl.innerText = "Catalog is currently closed."; return; }
+  const mob = document.getElementById("custMobileLogin").value.replace(/\D/g, "");
+  if (mob.length !== 10) { errEl.innerText = "Please enter a valid 10-digit mobile number."; return; }
+  const pin = document.getElementById("custPinLogin").value.replace(/\D/g, "");
+  if (pin.length !== 4) {
+    errEl.innerText = authMode === "login" ? "Please enter your 4-digit Secret PIN." : "Please create a 4-digit Secret PIN.";
+    return;
+  }
+
+  const btn = document.getElementById("loginBtn"); btn.innerText = "Checking..."; btn.disabled = true; errEl.innerText = "";
+  try {
+    await loginCustomerByMobile(mob, pin, false);
+  } catch (e) { errEl.innerText = "Error: " + e.message; }
+  finally { btn.innerText = authMode === "login" ? "Login" : "Sign Up & Open Catalog"; btn.disabled = false; }
+}
+
+// --- IN-APP NOTICE BELL & BANNER (0 EXTRA READS) ---
+function setupCustomerNoticeUI() {
+  const bellBtn = document.getElementById("noticeBellBtn");
+  const bellDot = document.getElementById("noticeBellDot");
+  const strip = document.getElementById("custNoticeStrip");
+  const txt = (appSettings.noticeText || "").trim();
+  if (!txt) {
+    bellBtn.classList.add("hidden");
+    strip.classList.add("hidden");
+    return;
+  }
+  bellBtn.classList.remove("hidden");
+  document.getElementById("noticeModalBody").innerText = txt;
+  const ver = String(appSettings.noticeUpdatedAt || txt.length);
+  const seenVer = localStorage.getItem("rt_notice_seen");
+  if (seenVer !== ver) {
+    bellDot.classList.remove("hidden");
+    document.getElementById("custNoticeText").innerText = "🔔 " + txt;
+    strip.classList.remove("hidden");
+  } else {
+    bellDot.classList.add("hidden");
+    strip.classList.add("hidden");
+  }
+}
+
+function dismissNoticeStrip() {
+  const txt = (appSettings.noticeText || "").trim();
+  const ver = String(appSettings.noticeUpdatedAt || txt.length);
+  localStorage.setItem("rt_notice_seen", ver);
+  document.getElementById("custNoticeStrip").classList.add("hidden");
+  document.getElementById("noticeBellDot").classList.add("hidden");
+}
+
+function openNoticeModal() {
+  dismissNoticeStrip();
+  document.getElementById("noticeModal").classList.remove("hidden");
+}
+
+// --- MULTIPLE OFFER BANNERS SLIDER ---
+function renderInlineAd() {
+  const box = document.getElementById("inlineAdBox");
+  const slider = document.getElementById("adSlider");
+  const strip = document.getElementById("inlineVoucherStrip");
+  const banners = appSettings.adBanners || [];
+  if (!banners.length && !vouchers.length) { box.classList.add("hidden"); return; }
+  box.classList.remove("hidden");
+  if (banners.length) {
+    slider.classList.remove("hidden");
+    slider.innerHTML = banners.map((src, i) => `
+      <div class="ad-slide">
+        <img src="${src}" onclick="zoomImage('${src}')" />
+        ${banners.length > 1 ? `<span class="ad-count-pill">${i + 1} / ${banners.length}</span>` : ''}
+      </div>`).join("");
+  } else {
+    slider.classList.add("hidden");
+    slider.innerHTML = "";
+  }
+  strip.innerHTML = vouchers.map(v => {
+    const dStr = v.discType === "flat" ? `Flat ₹${v.discount} OFF` : `${v.discount}% OFF`;
+    return `<div class="v-pill" onclick="openVoucherModal()">🏷️ ${escHtml(v.code)}: ${dStr} (Min ₹${v.minOrder})</div>`;
+  }).join("");
+}
+
+function renderCatPills() {
+  document.getElementById("catPills").innerHTML = categories.map(c => {
+    const isUnl = unlockedCatIds.has(c.id), isAct = activeCategory && c.id === activeCategory.id;
+    const icon = c.offSeason ? "⏸️" : (isUnl ? "🔓" : "🔒");
+    const cnt = c.offSeason ? 0 : products.filter(p => p.categoryId === c.id).length;
+    const label = c.offSeason ? `${icon} ${escHtml(c.name)}` : `${icon} ${escHtml(c.name)} (${cnt})`;
+    return `<button class="pill ${c.offSeason ? 'off-season' : ''} ${isAct ? 'active' : ''}" onclick="selectActiveCat('${c.id}')">${label}</button>`;
+  }).join("");
+}
+
+function selectActiveCat(id) {
+  activeCategory = categories.find(c => c.id === id);
+  activeFilters = {};
+  newOnlyFilter = false;
+  document.getElementById("newOnlyBtn").classList.remove("active");
+  updateFilterBtnUI();
+  renderCatPills();
+  renderCustomerProducts();
+}
+
+function inquireOffSeasonWA() {
+  if (!appSettings.whatsapp) { alert("WhatsApp number not set."); return; }
+  const catName = activeCategory ? activeCategory.name : "Items";
+  const num = appSettings.whatsapp.replace(/\D/g, ""), waNum = num.length === 10 ? "91" + num : num;
+  const msg = `Hello ${appSettings.shopName}, please let me know when "${catName}" stock will be available.`;
+  window.open(`https://wa.me/${waNum}?text=${encodeURIComponent(msg)}`, "_blank");
+}
+
+function unlockCurrentCat() {
+  if (!activeCategory) return;
+  const pass = prompt(`Enter Password to unlock "${activeCategory.name}" rates:`);
+  if (!pass) return;
+  if ((activeCategory.password || "").trim().toLowerCase() === pass.trim().toLowerCase()) {
+    unlockedCatIds.add(activeCategory.id);
+    saveUnlockedCategories();
+    renderCatPills(); renderCustomerProducts();
+  } else alert("Incorrect Password!");
+}
+
+// --- CUSTOMER MULTI-GROUP FILTER MODAL ---
+function getCatFilterGroups(cat) {
+  if (!cat) return [];
+  const groups = [...(cat.filterGroups || [])];
+  const catSubs = subCategories.filter(s => s.categoryId === cat.id);
+  catSubs.forEach(s => {
+    const g = s.groupName || (groups[0] || "Filter");
+    if (!groups.includes(g)) groups.push(g);
+  });
+  return groups;
+}
+
+function openFilterModal() {
+  renderCustomerFilterModal();
+  document.getElementById("filterModal").classList.remove("hidden");
+}
+
+function renderCustomerFilterModal() {
+  const listEl = document.getElementById("filterOptionsList");
+  if (!activeCategory) { listEl.innerHTML = ""; return; }
+  const groups = getCatFilterGroups(activeCategory);
+  const catSubs = subCategories.filter(s => s.categoryId === activeCategory.id);
+
+  if (!groups.length || !catSubs.length) {
+    listEl.innerHTML = `<p style="font-size:13px;color:var(--m);margin:10px 0;">No filters set for this category yet.</p>`;
+    return;
+  }
+
+  let html = "";
+  groups.forEach(gName => {
+    const opts = catSubs.filter(s => (s.groupName || groups[0]) === gName);
+    if (!opts.length) return;
+    const curVal = activeFilters[gName] || "";
+    html += `<div class="f-sec">
+      <div class="f-sec-title">${escHtml(gName)}</div>
+      <div class="f-chips">
+        <button type="button" class="f-chip ${!curVal ? 'active' : ''}" data-grp="${escHtml(gName)}" data-val="" onclick="pickCustFilter(this)">All</button>
+        ${opts.map(o => {
+          const isAct = curVal.toLowerCase() === o.name.toLowerCase();
+          return `<button type="button" class="f-chip ${isAct ? 'active' : ''}" data-grp="${escHtml(gName)}" data-val="${escHtml(o.name)}" onclick="pickCustFilter(this)">${escHtml(o.name)}</button>`;
+        }).join("")}
+      </div>
+    </div>`;
+  });
+  listEl.innerHTML = html;
+}
+
+function pickCustFilter(btn) {
+  const grp = btn.getAttribute("data-grp");
+  const val = btn.getAttribute("data-val");
+  if (!val || (activeFilters[grp] && activeFilters[grp].toLowerCase() === val.toLowerCase())) {
+    delete activeFilters[grp];
+  } else {
+    activeFilters[grp] = val;
+  }
+  updateFilterBtnUI();
+  renderCustomerFilterModal();
+  renderCustomerProducts();
+}
+
+function clearAllCustomerFilters() {
+  activeFilters = {};
+  updateFilterBtnUI();
+  renderCustomerFilterModal();
+  renderCustomerProducts();
+}
+
+function updateFilterBtnUI() {
+  const btn = document.getElementById("custFilterBtn");
+  const count = Object.keys(activeFilters).filter(k => activeFilters[k]).length;
+  if (count > 0) {
+    btn.innerText = `Filter (${count})`;
+    btn.classList.add("active");
+  } else {
+    btn.innerText = "Filter";
+    btn.classList.remove("active");
+  }
+}
+
+function toggleNewOnlyFilter() {
+  newOnlyFilter = !newOnlyFilter;
+  document.getElementById("newOnlyBtn").classList.toggle("active", newOnlyFilter);
+  renderCustomerProducts();
+}
+
+function isProductNew(p) {
+  if (!p._createdMs) return false;
+  return (Date.now() - p._createdMs) <= 10 * 24 * 60 * 60 * 1000;
+}
+
+// --- ADMIN AUTO-LOGIN & DEVICE MANAGEMENT ---
+async function registerCurrentAdminDevice() {
+  const myId = getDeviceId();
+  const label = getDeviceLabel();
+  const nowStr = new Date().toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+  const list = Array.isArray(appSettings.adminDevices) ? [...appSettings.adminDevices] : [];
+  const idx = list.findIndex(d => d.id === myId);
+  if (idx !== -1) {
+    list[idx].name = label;
+    list[idx].lastActive = nowStr;
+  } else {
+    list.unshift({ id: myId, name: label, loginAt: nowStr, lastActive: nowStr });
+  }
+  const trimmed = list.slice(0, 15);
+  appSettings.adminDevices = trimmed;
+  localStorage.setItem("rt_admin_dev_synced", "1");
+  renderAdminDevices();
+  await db.collection("settings").doc("config").set({ adminDevices: trimmed }, { merge: true });
+}
+
+async function enterAdminPanel(isAuto) {
+  document.getElementById("hdrSub").innerText = "Admin Panel";
+  document.getElementById("appSplash").classList.add("hidden");
+  document.getElementById("loginView").classList.add("hidden");
+  document.getElementById("customerView").classList.add("hidden");
+  document.getElementById("myOrdersBtn").classList.add("hidden");
+  document.getElementById("noticeBellBtn").classList.add("hidden");
+  isMarketOrderMode = false;
+  isSalesmanMode = false;
+  document.getElementById("backToAdminBtn").classList.add("hidden");
+  document.getElementById("adminView").classList.remove("hidden");
+  document.getElementById("marketOrderBtn").classList.remove("hidden");
+  document.getElementById("adminRefreshBtn").classList.remove("hidden");
+  document.getElementById("logoutBtn").classList.remove("hidden");
+  updateOfflineOrdersBanner();
+  try {
+    if (isAuto) registerCurrentAdminDevice().catch(() => {});
+    else await registerCurrentAdminDevice();
+  } catch (e) {}
+  loadAdminRecords(false);
+}
+
+async function openAdminPrompt() {
+  const pin = prompt("Enter Admin PIN:");
+  if (pin === null) return;
+  if (pin.trim() === String(appSettings.adminPin || "7860")) {
+    localStorage.setItem("rt_admin_logged_in", "1");
+    await enterAdminPanel(false);
+  } else alert("Incorrect Admin PIN!");
+}
+
+// --- SALESMAN LOGIN & ADMIN MARKET ORDER MODE ---
+function openSalesmanPrompt() {
+  const pin = prompt("Enter 4-Digit Salesman PIN:");
+  if (pin === null) return;
+  const sm = (appSettings.salesmen || []).find(s => String(s.pin).trim() === pin.trim());
+  if (!sm) { alert("Invalid Salesman PIN! Contact Raza Traders."); return; }
+  localStorage.setItem("rt_salesman_pin", sm.pin);
+  localStorage.setItem("rt_salesman_name", sm.name);
+  enterSalesmanMode(sm.name);
+}
+
+function enterSalesmanMode(name) {
+  isSalesmanMode = true;
+  isMarketOrderMode = false;
+  activeSalesmanName = name || "Salesman";
+  openFieldCatalogView(`Salesman: ${activeSalesmanName}`);
+}
+
+function enterMarketOrderMode() {
+  isMarketOrderMode = true;
+  isSalesmanMode = false;
+  activeSalesmanName = "Owner (Market)";
+  openFieldCatalogView("Market Order Mode");
+}
+
+function exitMarketOrderMode() {
+  isMarketOrderMode = false;
+  cart = {}; cartRateOverrides = {}; cartItemRemarks = {}; appliedVouchers = [];
+  document.getElementById("customerView").classList.add("hidden");
+  document.getElementById("cartBar").classList.add("hidden");
+  document.getElementById("backToAdminBtn").classList.add("hidden");
+  document.getElementById("adminView").classList.remove("hidden");
+  document.getElementById("marketOrderBtn").classList.remove("hidden");
+  document.getElementById("adminRefreshBtn").classList.remove("hidden");
+  document.getElementById("hdrSub").innerText = "Admin Panel";
+  updateOfflineOrdersBanner();
+}
+
+function openFieldCatalogView(subTitle) {
+  activeMobile = "";
+  activeCustName = "";
+  cart = {}; cartRateOverrides = {}; cartItemRemarks = {}; appliedVouchers = [];
+  activeFilters = {}; newOnlyFilter = false;
+  unlockedCatIds = new Set(categories.map(c => c.id));
+  activeCategory = categories.find(c => !c.offSeason) || categories[0] || null;
+  document.getElementById("hdrSub").innerText = subTitle;
+  document.getElementById("appSplash").classList.add("hidden");
+  document.getElementById("loginView").classList.add("hidden");
+  document.getElementById("adminView").classList.add("hidden");
+  document.getElementById("myOrdersBtn").classList.add("hidden");
+  document.getElementById("noticeBellBtn").classList.add("hidden");
+  document.getElementById("marketOrderBtn").classList.add("hidden");
+  document.getElementById("adminRefreshBtn").classList.add("hidden");
+  document.getElementById("backToAdminBtn").classList.toggle("hidden", !isMarketOrderMode);
+  document.getElementById("logoutBtn").classList.remove("hidden");
+  document.getElementById("customerView").classList.remove("hidden");
+  updateOfflineOrdersBanner();
+  updateFilterBtnUI(); renderInlineAd(); renderCatPills(); renderCustomerProducts(); updateCartBar();
+}
+
+async function addSalesmanAccount() {
+  const name = document.getElementById("newSalesmanName").value.trim();
+  const pin = document.getElementById("newSalesmanPin").value.replace(/\D/g, "");
+  if (!name || pin.length !== 4) { alert("Enter Staff Name and exact 4-digit PIN."); return; }
+  const list = Array.isArray(appSettings.salesmen) ? [...appSettings.salesmen] : [];
+  if (list.some(s => String(s.pin) === pin)) { alert("This 4-digit PIN is already used by another staff member."); return; }
+  list.push({ id: "sm_" + Date.now(), name, pin });
+  await db.collection("settings").doc("config").set({ salesmen: list }, { merge: true });
+  appSettings.salesmen = list;
+  document.getElementById("newSalesmanName").value = "";
+  document.getElementById("newSalesmanPin").value = "";
+  renderAdminSalesmen();
+  showToast(`✓ Salesman "${name}" added!`);
+}
+
+async function deleteSalesmanAccount(id) {
+  if (!confirm("Remove this salesman account?")) return;
+  const list = (appSettings.salesmen || []).filter(s => s.id !== id);
+  await db.collection("settings").doc("config").set({ salesmen: list }, { merge: true });
+  appSettings.salesmen = list;
+  renderAdminSalesmen();
+  showToast("✓ Salesman removed!");
+}
+
+function renderAdminSalesmen() {
+  const el = document.getElementById("adminSalesmenList");
+  if (!el) return;
+  const list = appSettings.salesmen || [];
+  el.innerHTML = list.length ? list.map(s => `
+    <div class="list-item">
+      <div><strong>🧑‍💼 ${escHtml(s.name)}</strong> <span class="badge badge-pur">PIN: ${escHtml(s.pin)}</span></div>
+      <button type="button" class="btn-sm" style="background:var(--d);" onclick="deleteSalesmanAccount('${escHtml(s.id)}')">Remove</button>
+    </div>`).join("") : `<p style="color:var(--m);font-size:12px;">No salesman accounts added yet.</p>`;
+}
+
+// --- OFFLINE PENDING ORDERS QUEUE ---
+function getPendingOfflineOrders() {
+  try { return JSON.parse(localStorage.getItem("rt_pending_offline_orders") || "[]"); } catch (e) { return []; }
+}
+function savePendingOfflineOrders(arr) {
+  try { localStorage.setItem("rt_pending_offline_orders", JSON.stringify(arr)); } catch (e) {}
+  updateOfflineOrdersBanner();
+}
+function updateOfflineOrdersBanner() {
+  const arr = getPendingOfflineOrders();
+  const cnt = arr.length;
+  ["custOfflineBar","adminOfflineBar"].forEach(id => {
+    const bar = document.getElementById(id);
+    if (bar) bar.classList.toggle("hidden", cnt === 0);
+  });
+  ["custOfflineTxt","adminOfflineTxt"].forEach(id => {
+    const txt = document.getElementById(id);
+    if (txt) txt.innerText = `⏳ ${cnt} Pending Offline Order${cnt > 1 ? 's' : ''}`;
+  });
+}
+async function syncPendingOfflineOrders() {
+  const arr = getPendingOfflineOrders();
+  if (!arr.length) return;
+  if (!navigator.onLine) { alert("No internet connection yet. Please try again when network is available."); return; }
+  let uploaded = 0;
+  const remaining = [];
+  for (const ord of arr) {
+    try {
+      const payload = { ...ord, createdAt: firebase.firestore.FieldValue.serverTimestamp() };
+      delete payload._offlineSavedAt;
+      await db.collection("orders").add(payload);
+      if (ord.mobile && ord.mobile.length === 10) {
+        db.collection("customers").doc(ord.mobile).set({ mobile: ord.mobile, name: ord.customerName || "Customer", lastSeen: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true }).catch(() => {});
+      }
+      uploaded++;
+    } catch (e) {
+      remaining.push(ord);
+    }
+  }
+  savePendingOfflineOrders(remaining);
+  if (uploaded > 0) {
+    showToast(`✓ ${uploaded} offline order${uploaded > 1 ? 's' : ''} uploaded!`);
+    if (!document.getElementById("adminView").classList.contains("hidden")) loadAdminRecords(false);
+  } else {
+    alert("Upload failed. Please check your internet connection.");
+  }
+}
+
+async function removeAdminDevice(devId) {
+  if (devId === getDeviceId()) {
+    logout();
+    return;
+  }
+  if (!confirm("Log out and remove this device from Admin Panel?")) return;
+  const nextList = (appSettings.adminDevices || []).filter(d => d.id !== devId);
+  await db.collection("settings").doc("config").set({ adminDevices: nextList }, { merge: true });
+  appSettings.adminDevices = nextList;
+  renderAdminDevices();
+  showToast("✓ Device logged out & removed!");
+}
+
+async function removeAllOtherAdminDevices() {
+  const myId = getDeviceId();
+  if (!confirm("Log out Admin from all other phones/devices?")) return;
+  const nextList = (appSettings.adminDevices || []).filter(d => d.id === myId);
+  await db.collection("settings").doc("config").set({ adminDevices: nextList }, { merge: true });
+  appSettings.adminDevices = nextList;
+  renderAdminDevices();
+  showToast("✓ All other devices logged out!");
+}
+
+function renderAdminDevices() {
+  const listEl = document.getElementById("adminDevicesList");
+  const countEl = document.getElementById("adminDevCount");
+  const outAllBtn = document.getElementById("logoutOtherDevsBtn");
+  if (!listEl) return;
+  const list = appSettings.adminDevices || [];
+  const myId = getDeviceId();
+  countEl.innerText = list.length;
+  outAllBtn.classList.toggle("hidden", list.filter(d => d.id !== myId).length === 0);
+
+  listEl.innerHTML = list.length ? list.map(d => {
+    const isMe = d.id === myId;
+    return `<div class="list-item">
+      <div>
+        <div style="font-weight:700;font-size:13px;">📱 ${escHtml(d.name || "Mobile")} ${isMe ? '<span class="badge badge-grn">This Phone</span>' : ''}</div>
+        <div style="font-size:11px;color:#555;">Logged in: ${escHtml(d.loginAt || '')}</div>
+      </div>
+      <button type="button" class="btn-sm" style="background:${isMe ? '#6b7280' : 'var(--d)'};" onclick="removeAdminDevice('${escHtml(d.id)}')">${isMe ? 'Logout' : 'Remove'}</button>
+    </div>`;
+  }).join("") : `<p style="color:var(--m);font-size:12px;">No active admin devices recorded.</p>`;
+}
+
+function logout() {
+  if (localStorage.getItem("rt_admin_logged_in") === "1") {
+    const myId = getDeviceId();
+    const nextList = (appSettings.adminDevices || []).filter(d => d.id !== myId);
+    appSettings.adminDevices = nextList;
+    db.collection("settings").doc("config").set({ adminDevices: nextList }, { merge: true }).catch(() => {});
+  }
+  localStorage.removeItem("rt_admin_logged_in");
+  localStorage.removeItem("rt_admin_dev_synced");
+  localStorage.removeItem("rt_app_mobile");
+  localStorage.removeItem("rt_app_pin");
+  localStorage.removeItem("rt_salesman_pin");
+  localStorage.removeItem("rt_salesman_name");
+  isSalesmanMode = false; isMarketOrderMode = false; activeSalesmanName = "";
+  cartRateOverrides = {}; cartItemRemarks = {};
+  document.getElementById("custPinLogin").value = "";
+  document.getElementById("custMobileOrder").readOnly = false;
+  unlockedCatIds = new Set(); activeCategory = null; activeFilters = {}; newOnlyFilter = false;
+  activeMobile = ""; cart = {}; appliedVouchers = []; customerPastOrders = null;
+  document.getElementById("hdrSub").innerText = "Wholesale Digital Catalog";
+  ["appSplash","customerView","adminView","cartBar","marketOrderBtn","backToAdminBtn","adminRefreshBtn","logoutBtn","myOrdersBtn","noticeBellBtn","legacyPinModal"].forEach(id => document.getElementById(id).classList.add("hidden"));
+  document.getElementById("loginView").classList.remove("hidden");
+}
+
+function getProductFilterValues(p) {
+  let vals = [];
+  if (p.filters && typeof p.filters === "object") {
+    vals = Object.values(p.filters).filter(Boolean);
+  }
+  if (!vals.length && p.subCategory) {
+    vals = [p.subCategory];
+  }
+  return vals;
+}
+
+function renderCustomerProducts() {
+  if (!activeCategory) return;
+  const offBox = document.getElementById("offSeasonBox");
+  const activeSec = document.getElementById("activeCatCatalogSection");
+  if (activeCategory.offSeason) {
+    document.getElementById("offSeasonTitle").innerText = `⏸️ ${activeCategory.name} — Currently Off-Season`;
+    offBox.classList.remove("hidden");
+    activeSec.classList.add("hidden");
+    return;
+  }
+  offBox.classList.add("hidden");
+  activeSec.classList.remove("hidden");
+
+  const isUnlocked = unlockedCatIds.has(activeCategory.id);
+  document.getElementById("lockBanner").classList.toggle("hidden", isUnlocked);
+  const q = document.getElementById("searchInput").value.trim().toLowerCase();
+  const sortBy = document.getElementById("custSortSelect").value;
+  const filterEntries = Object.entries(activeFilters).filter(([_, v]) => v);
+
+  let list = products.filter(p => {
+    if (p.categoryId !== activeCategory.id) return false;
+    if (newOnlyFilter && !isProductNew(p)) return false;
+    for (const [grp, reqVal] of filterEntries) {
+      const pVal = (p.filters && p.filters[grp]) ? p.filters[grp] : (p.subCategory || "");
+      if (pVal.toLowerCase() !== reqVal.toLowerCase()) return false;
+    }
+    if (q) {
+      const fStr = getProductFilterValues(p).join(" ").toLowerCase();
+      if (!(p.name.toLowerCase().includes(q) || (p.description || "").toLowerCase().includes(q) || fStr.includes(q))) return false;
+    }
+    return true;
+  });
+
+  if (sortBy === "newest") {
+    list = [...list].sort((a, b) => (b._createdMs || 0) - (a._createdMs || 0));
+  } else if (sortBy === "price_asc" && isUnlocked) {
+    list = [...list].sort((a, b) => Number(a.price) - Number(b.price));
+  } else if (sortBy === "price_desc" && isUnlocked) {
+    list = [...list].sort((a, b) => Number(b.price) - Number(a.price));
+  }
+
+  document.getElementById("custShowingCount").innerText = `${list.length} items`;
+
+  const grid = document.getElementById("custProductGrid"), empty = document.getElementById("custEmptyMsg");
+  if (!list.length) { grid.innerHTML = ""; empty.classList.remove("hidden"); return; }
+  empty.classList.add("hidden");
+  const stepStrict = appSettings.strictSet !== false;
+  grid.innerHTML = list.map(p => {
+    const qty = cart[p.id] || 0, moq = Number(p.moq) || 1, step = stepStrict ? moq : 1;
+    const imgSrc = p.image || "https://via.placeholder.com/300x300?text=No+Photo";
+    const fVals = getProductFilterValues(p);
+    const newBadge = isProductNew(p) ? `<span class="new-ribbon">NEW</span>` : "";
+    const subTagHtml = fVals.length ? `<div class="prod-subtags">${fVals.map(v => `<span class="prod-subtag">${escHtml(v)}</span>`).join("")}</div>` : "";
+    const descHtml = p.description ? `<div class="prod-desc">${escHtml(p.description)}</div>` : "";
+    if (!isUnlocked) return `<div class="prod-card">${newBadge}<img src="${imgSrc}" class="prod-img" onclick="zoomImage('${imgSrc}')" /><div class="prod-body"><div><div class="prod-title">${escHtml(p.name)}</div>${subTagHtml}${descHtml}</div><div class="rate-locked" onclick="unlockCurrentCat()">🔒 Rate Locked<br><small>Tap to unlock</small></div></div></div>`;
+    return `<div class="prod-card">${newBadge}<img src="${imgSrc}" class="prod-img" onclick="zoomImage('${imgSrc}')" /><div class="prod-body">
+      <div><div class="prod-title">${escHtml(p.name)}</div>${subTagHtml}${descHtml}<div class="prod-price">₹${p.price} <span style="font-size:11px;font-weight:400;color:#666;">/ pc</span></div>
+      <div class="prod-moq">${stepStrict ? '1 Set = ' : 'Min: '}${moq} pcs</div></div>
+      ${p.outOfStock ? `<button class="oos-btn" disabled>Out of Stock</button>` :
+        (qty === 0 ? `<button class="add-btn" onclick="stepQty('${p.id}', ${moq}, ${moq})">+ Add (${moq} pcs)</button>`
+        : `<div class="qty-row"><button class="qty-btn" onclick="stepQty('${p.id}', ${qty - step}, ${moq})">-</button><input type="number" class="qty-inp" value="${qty}" onchange="manualQty('${p.id}', this.value, ${moq})" /><button class="qty-btn" onclick="stepQty('${p.id}', ${qty + step}, ${moq})">+</button></div>`)
+      }</div></div>`;
+  }).join("");
+}
+
+function stepQty(id, nq, moq) { if (nq < moq) delete cart[id]; else cart[id] = nq; saveCustomerCart(); renderCustomerProducts(); updateCartBar(); }
+function manualQty(id, rv, moq) {
+  const v = parseInt(rv, 10);
+  if (isNaN(v) || v <= 0) delete cart[id];
+  else cart[id] = appSettings.strictSet !== false ? Math.max(moq, Math.ceil(v / moq) * moq) : Math.max(moq, v);
+  saveCustomerCart(); renderCustomerProducts(); updateCartBar();
+}
+
+function clearCustomerCart() {
+  if (!Object.keys(cart).length) return;
+  if (!confirm("Clear all selected items from cart?")) return;
+  cart = {};
+  appliedVouchers = [];
+  saveCustomerCart();
+  closeCartModal();
+  renderCustomerProducts();
+  updateCartBar();
+  showToast("✓ Cart cleared");
+}
+
+// --- MULTI-VOUCHER VALIDATION & CALCULATION ---
+async function ensureCustomerPastOrders() {
+  if (customerPastOrders !== null) return customerPastOrders;
+  if (!activeMobile) { customerPastOrders = []; return []; }
+  try {
+    const snap = await db.collection("orders").where("mobile", "==", activeMobile).get();
+    customerPastOrders = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    customerPastOrders.sort((a, b) => {
+      const ta = a.createdAt && a.createdAt.toMillis ? a.createdAt.toMillis() : 0;
+      const tb = b.createdAt && b.createdAt.toMillis ? b.createdAt.toMillis() : 0;
+      return tb - ta;
+    });
+  } catch (e) {
+    customerPastOrders = [];
+  }
+  return customerPastOrders;
+}
+
+function getVoucherUsedCount(code) {
+  if (!customerPastOrders) return 0;
+  const target = (code || "").toUpperCase();
+  let count = 0;
+  customerPastOrders.forEach(o => {
+    if (Array.isArray(o.voucherCodes)) {
+      if (o.voucherCodes.some(c => String(c).toUpperCase() === target)) count++;
+    } else if (o.voucherCode) {
+      const parts = String(o.voucherCode).split(",").map(s => s.trim().toUpperCase());
+      if (parts.includes(target)) count++;
+    }
+  });
+  return count;
+}
+
+function checkVoucherEligibility(v, sub) {
+  if (sub < Number(v.minOrder)) {
+    return { ok: false, reason: `Minimum order of ₹${v.minOrder} required.` };
+  }
+  if (v.firstTimeOnly && customerPastOrders && customerPastOrders.length > 0) {
+    return { ok: false, reason: `Valid for First-Time Customers only.` };
+  }
+  if (v.maxUses > 0 && customerPastOrders) {
+    const used = getVoucherUsedCount(v.code);
+    if (used >= v.maxUses) {
+      return { ok: false, reason: `Usage limit (${v.maxUses}x) reached for your number.` };
+    }
+  }
+  return { ok: true, reason: "" };
+}
+
+function calcSingleVoucherDiscount(v, sub) {
+  if (v.discType === "flat") return Math.min(sub, Number(v.discount) || 0);
+  return Math.round(sub * (Number(v.discount) || 0) / 100);
+}
+
+function getEffectiveCartPrice(p) {
+  if (isFieldOrderMode() && cartRateOverrides[p.id] !== undefined && cartRateOverrides[p.id] !== "") {
+    return Math.max(0, Number(cartRateOverrides[p.id]) || 0);
+  }
+  return Number(p.price) || 0;
+}
+
+function getCartTotals() {
+  let pcs = 0, sub = 0;
+  for (const id in cart) { const p = products.find(x => x.id === id); if (p) { pcs += cart[id]; sub += cart[id] * getEffectiveCartPrice(p); } }
+  let validList = [];
+  let totalDisc = 0;
+  appliedVouchers.forEach(v => {
+    const check = checkVoucherEligibility(v, sub);
+    if (check.ok) {
+      validList.push(v);
+      totalDisc += calcSingleVoucherDiscount(v, sub);
+    }
+  });
+  appliedVouchers = validList;
+  totalDisc = Math.min(sub, totalDisc);
+  return { pcs, sub, disc: totalDisc, total: Math.max(0, sub - totalDisc) };
+}
+
+function updateCartBar() {
+  const { pcs, total } = getCartTotals(), bar = document.getElementById("cartBar");
+  if (pcs > 0) { document.getElementById("cartPcs").innerText = pcs; document.getElementById("cartTotal").innerText = total; bar.classList.remove("hidden"); }
+  else bar.classList.add("hidden");
+}
+
+function onFieldCartRateChange(pid, val) {
+  cartRateOverrides[pid] = val;
+  const p = products.find(x => x.id === pid);
+  const subEl = document.getElementById("cartItemSub_" + pid);
+  if (p && subEl) subEl.innerText = "₹" + (cart[pid] * getEffectiveCartPrice(p));
+  refreshCartModalTotals();
+  updateCartBar();
+}
+function onFieldCartRemarkChange(pid, val) {
+  cartItemRemarks[pid] = val;
+}
+
+function openCartModal() {
+  const isField = isFieldOrderMode();
+  let html = "";
+  for (const id in cart) {
+    const p = products.find(x => x.id === id);
+    if (!p) continue;
+    const effRate = getEffectiveCartPrice(p);
+    const remVal = cartItemRemarks[id] || "";
+    if (isField) {
+      html += `<div style="padding:7px 0;border-bottom:1px solid #e5e7eb;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span><strong>${escHtml(p.name)}</strong> <small style="color:#666;">(${cart[id]} pcs)</small></span>
+          <strong id="cartItemSub_${id}">₹${cart[id] * effRate}</strong>
+        </div>
+        <div class="field-item-edit">
+          <input type="number" value="${effRate}" placeholder="Rate ₹" style="width:82px;" oninput="onFieldCartRateChange('${id}', this.value)" />
+          <input type="text" value="${escHtml(remVal)}" placeholder="Item remark (Ex: Mix color / Rate note)" style="flex:1;" oninput="onFieldCartRemarkChange('${id}', this.value)" />
+        </div>
+      </div>`;
+    } else {
+      html += `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f3f4f6;"><span>${escHtml(p.name)} <small style="color:#666;">[${escHtml(p.categoryName)}]</small><br>${cart[id]} pcs x ₹${p.price}</span><strong>₹${cart[id]*Number(p.price)}</strong></div>`;
+    }
+  }
+  document.getElementById("cartItemsList").innerHTML = html;
+  document.getElementById("voucherMsg").innerText = "";
+  document.getElementById("custMarketBox").classList.toggle("hidden", !isField);
+  document.getElementById("custNameLbl").innerText = isField ? "Shop / Party Name *" : "Consignee / Shop Name (Optional)";
+  document.getElementById("waSendBtn").innerText = isField ? "Save Market Order" : "Place Order & Notify on WhatsApp";
+  const ordMobInp = document.getElementById("custMobileOrder");
+  if (isField) {
+    ordMobInp.value = "";
+    ordMobInp.readOnly = false;
+    document.getElementById("custName").value = "";
+    document.getElementById("custMarket").value = "";
+  } else if (activeMobile) {
+    ordMobInp.value = activeMobile;
+    ordMobInp.readOnly = true;
+  }
+  refreshCartModalTotals();
+  document.getElementById("cartModal").classList.remove("hidden");
+}
+
+function refreshCartModalTotals() {
+  const { pcs, sub, disc, total } = getCartTotals();
+  document.getElementById("modalSub").innerText = sub;
+  document.getElementById("modalPcs").innerText = pcs;
+  document.getElementById("modalTotal").innerText = total;
+
+  const chipsBox = document.getElementById("appliedVouchersBox");
+  chipsBox.innerHTML = appliedVouchers.map(v => {
+    const dAmt = calcSingleVoucherDiscount(v, sub);
+    return `<span class="v-chip-applied">🏷️ ${escHtml(v.code)} (-₹${dAmt}) <button type="button" onclick="removeAppliedVoucher('${escHtml(v.code)}')">×</button></span>`;
+  }).join("");
+
+  const dr = document.getElementById("modalDiscRow");
+  if (disc > 0) {
+    document.getElementById("modalDiscAmt").innerText = `${disc}`;
+    dr.classList.remove("hidden");
+  } else dr.classList.add("hidden");
+}
+
+function removeAppliedVoucher(code) {
+  appliedVouchers = appliedVouchers.filter(v => v.code !== code);
+  refreshCartModalTotals();
+  updateCartBar();
+}
+
+async function applyCustomerVoucher() {
+  const code = document.getElementById("custVoucherInput").value.trim().toUpperCase(), msg = document.getElementById("voucherMsg");
+  if (!code) return;
+  const v = vouchers.find(x => (x.code || "").toUpperCase() === code);
+  if (!v) { msg.style.color = "var(--d)"; msg.innerText = "Invalid Voucher Code!"; return; }
+  if (appliedVouchers.some(x => x.code.toUpperCase() === code)) {
+    msg.style.color = "var(--p)"; msg.innerText = `Voucher ${v.code} is already applied.`; return;
+  }
+  if (v.firstTimeOnly || v.maxUses > 0) {
+    msg.style.color = "var(--p)"; msg.innerText = "Checking eligibility...";
+    await ensureCustomerPastOrders();
+  }
+  const { sub } = getCartTotals();
+  const check = checkVoucherEligibility(v, sub);
+  if (!check.ok) { msg.style.color = "var(--d)"; msg.innerText = check.reason; return; }
+
+  appliedVouchers.push(v);
+  document.getElementById("custVoucherInput").value = "";
+  msg.style.color = "var(--s)"; msg.innerText = `Voucher ${v.code} applied!`;
+  refreshCartModalTotals(); updateCartBar();
+}
+
+async function openVoucherModal() {
+  if (!vouchers.length) { alert("No active discount vouchers available right now."); return; }
+  if (vouchers.some(v => v.firstTimeOnly || v.maxUses > 0) && customerPastOrders === null) {
+    await ensureCustomerPastOrders();
+  }
+  renderVoucherOffersList();
+  document.getElementById("voucherViewModal").classList.remove("hidden");
+}
+
+function renderVoucherOffersList() {
+  const { sub } = getCartTotals();
+  const listEl = document.getElementById("voucherOffersList");
+  listEl.innerHTML = vouchers.map(v => {
+    const isSel = appliedVouchers.some(x => x.code === v.code);
+    const check = checkVoucherEligibility(v, sub);
+    const dStr = v.discType === "flat" ? `Flat ₹${v.discount} OFF` : `${v.discount}% OFF`;
+    const tags = [
+      `Min ₹${v.minOrder}`,
+      v.maxUses > 0 ? `${v.maxUses}x / User` : "Unlimited",
+      v.firstTimeOnly ? "1st Order Only" : ""
+    ].filter(Boolean).join(" • ");
+    return `<div class="v-offer-card ${isSel ? 'selected' : ''}">
+      <div style="flex:1;">
+        <div style="font-weight:800;font-size:14px;color:var(--p);">${escHtml(v.code)} <span class="badge badge-grn">${dStr}</span></div>
+        <div style="font-size:11px;color:#4b5563;margin-top:2px;">${tags}</div>
+        ${!check.ok && !isSel ? `<div style="font-size:11px;color:var(--d);margin-top:2px;">${check.reason}</div>` : ''}
+      </div>
+      <button type="button" class="btn-sm" style="background:${isSel ? 'var(--s)' : (check.ok ? 'var(--p)' : '#9ca3af')};padding:7px 11px;" ${!isSel && !check.ok ? 'disabled' : ''} onclick="toggleVoucherFromModal('${escHtml(v.code)}')">
+        ${isSel ? '✓ Selected' : 'Select'}
+      </button>
+    </div>`;
+  }).join("");
+}
+
+function toggleVoucherFromModal(code) {
+  const idx = appliedVouchers.findIndex(v => v.code === code);
+  if (idx !== -1) {
+    appliedVouchers.splice(idx, 1);
+  } else {
+    const v = vouchers.find(x => x.code === code);
+    const { sub } = getCartTotals();
+    if (v && checkVoucherEligibility(v, sub).ok) appliedVouchers.push(v);
+  }
+  refreshCartModalTotals();
+  updateCartBar();
+  renderVoucherOffersList();
+}
+
+function closeCartModal() { document.getElementById("cartModal").classList.add("hidden"); }
+
+// --- CUSTOMER MY ORDERS & 1-TAP REPEAT ORDER ---
+async function openMyOrdersModal() {
+  document.getElementById("myOrdersModal").classList.remove("hidden");
+  await loadCustomerPastOrders(false);
+}
+
+async function loadCustomerPastOrders(forceRefresh) {
+  const box = document.getElementById("myOrdersList");
+  box.innerHTML = `<p style="color:var(--p);font-size:13px;text-align:center;padding:16px 0;">Loading your orders...</p>`;
+  if (forceRefresh) customerPastOrders = null;
+  const list = await ensureCustomerPastOrders();
+  if (!list.length) {
+    box.innerHTML = `<p style="color:var(--m);font-size:13px;text-align:center;padding:16px 0;">You have not placed any orders yet.</p>`;
+    return;
+  }
+  box.innerHTML = list.map((o, idx) => {
+    const dt = o.createdAt && o.createdAt.toDate ? o.createdAt.toDate().toLocaleDateString("en-IN") : "";
+    const st = o.status || "New";
+    const stCls = st === "Completed" ? "badge-grn" : (st === "Accepted" ? "badge-org" : "");
+    const itemsTxt = (o.items || []).map(i => `${escHtml(i.name)} (${i.qty} pcs × ₹${i.price})`).join(", ");
+    return `<div class="ord-card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+        <strong>${dt || 'Order'}</strong>
+        <span class="badge ${stCls}">${escHtml(st)}</span>
+      </div>
+      <div style="color:#374151;font-size:11px;line-height:1.4;margin-bottom:6px;">${itemsTxt}</div>
+      ${o.remark ? `<div style="font-size:11px;color:#4b5563;margin-bottom:4px;"><strong>Remark:</strong> ${escHtml(o.remark)}</div>` : ''}
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
+        <span style="font-weight:700;color:var(--p);">Total: ₹${o.totalAmt} (${o.totalPcs} pcs)</span>
+        <button type="button" class="btn-sm" style="background:var(--s);" onclick="repeatCustomerOrder(${idx})">🔄 Repeat Order</button>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function repeatCustomerOrder(idx) {
+  const o = customerPastOrders[idx];
+  if (!o || !Array.isArray(o.items)) return;
+  let added = 0, skipped = 0;
+  const stepStrict = appSettings.strictSet !== false;
+  o.items.forEach(it => {
+    let p = it.prodId ? products.find(x => x.id === it.prodId) : products.find(x => x.name === it.name);
+    if (!p || p.outOfStock) { skipped++; return; }
+    const cat = categories.find(c => c.id === p.categoryId);
+    if (cat && cat.offSeason) { skipped++; return; }
+    const moq = Number(p.moq) || 1;
+    const rawQ = Number(it.qty) || moq;
+    cart[p.id] = stepStrict ? Math.max(moq, Math.ceil(rawQ / moq) * moq) : Math.max(moq, rawQ);
+    added++;
+  });
+  saveCustomerCart();
+  document.getElementById("myOrdersModal").classList.add("hidden");
+  renderCustomerProducts();
+  updateCartBar();
+  if (added > 0) {
+    showToast(skipped ? `✓ ${added} items added (${skipped} unavailable)` : `✓ ${added} items added to cart!`);
+  } else {
+    alert("Items from this order are currently out of stock or off-season.");
+  }
+}
+
+async function sendCustomerOrder() {
+  const isField = isFieldOrderMode();
+  if (!isField && !appSettings.whatsapp) { alert("Admin WhatsApp number is not set."); return; }
+  const mob = isField ? document.getElementById("custMobileOrder").value.replace(/\D/g, "") : (activeMobile || document.getElementById("custMobileOrder").value.replace(/\D/g, ""));
+  if (mob.length !== 10) { alert("10-digit mobile number is required!"); return; }
+  const cName = document.getElementById("custName").value.trim() || "Customer";
+  if (isField && !document.getElementById("custName").value.trim()) { alert("Shop / Party Name is required!"); return; }
+  const market = isField ? (document.getElementById("custMarket").value.trim()) : "";
+  const remark = document.getElementById("custRemark").value.trim();
+
+  const { pcs, sub, disc, total } = getCartTotals();
+  const minOrd = Number(appSettings.minOrderAmt) || 0;
+  if (!isField && minOrd > 0 && sub < minOrd) {
+    alert(`Minimum order amount is ₹${minOrd}. Your current subtotal is ₹${sub}.`);
+    return;
+  }
+
+  const btn = document.getElementById("waSendBtn"); btn.innerText = isField ? "Saving Order..." : "Placing Order..."; btn.disabled = true;
+
+  let itemsArr = [];
+  for (const id in cart) {
+    const p = products.find(x => x.id === id);
+    if (p) {
+      const effPrice = getEffectiveCartPrice(p);
+      const itemRem = isField ? (cartItemRemarks[id] || "").trim() : "";
+      itemsArr.push({ prodId: p.id, name: p.name, category: p.categoryName, qty: cart[id], price: effPrice, sub: cart[id] * effPrice, remark: itemRem, packed: false });
+    }
+  }
+
+  const vCodes = appliedVouchers.map(v => v.code);
+  const newOrdData = {
+    customerName: cName, mobile: mob, market, remark, status: "New", items: itemsArr, totalPcs: pcs,
+    subtotal: sub, discountAmt: disc, extraCharge: 0, paidAmt: 0, cartons: "", transportName: "",
+    orderBy: isField ? activeSalesmanName : "",
+    discountPct: appliedVouchers.length === 1 && appliedVouchers[0].discType === "pct" ? Number(appliedVouchers[0].discount) : 0,
+    voucherCodes: vCodes, voucherCode: vCodes.join(", "), totalAmt: total,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  };
+
+  let savedOffline = false;
+  if (isField && !navigator.onLine) {
+    const q = getPendingOfflineOrders();
+    const offObj = { ...newOrdData, _offlineSavedAt: Date.now() };
+    delete offObj.createdAt;
+    q.push(offObj);
+    savePendingOfflineOrders(q);
+    savedOffline = true;
+  } else {
+    try {
+      const [oRef] = await Promise.all([
+        db.collection("orders").add(newOrdData),
+        db.collection("customers").doc(mob).set({ mobile: mob, name: cName, lastSeen: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true })
+      ]);
+      if (customerPastOrders !== null) {
+        customerPastOrders.unshift({ id: oRef.id, ...newOrdData, createdAt: { toDate: () => new Date(), toMillis: () => Date.now() } });
+      }
+    } catch (e) {
+      if (isField) {
+        const q = getPendingOfflineOrders();
+        const offObj = { ...newOrdData, _offlineSavedAt: Date.now() };
+        delete offObj.createdAt;
+        q.push(offObj);
+        savePendingOfflineOrders(q);
+        savedOffline = true;
+      } else {
+        console.error(e);
+      }
+    }
+  }
+
+  cart = {}; cartRateOverrides = {}; cartItemRemarks = {}; appliedVouchers = [];
+  if (!isField) saveCustomerCart();
+  document.getElementById("custVoucherInput").value = ""; document.getElementById("voucherMsg").innerText = ""; document.getElementById("custRemark").value = "";
+  closeCartModal(); renderCustomerProducts(); updateCartBar();
+  btn.innerText = isField ? "Save Market Order" : "Place Order & Notify on WhatsApp"; btn.disabled = false;
+
+  if (isField) {
+    showToast(savedOffline ? "⏳ Saved Offline! Upload when online." : `✓ Order saved for ${cName}!`);
+    return;
+  }
+
+  const plainMsg = `Hello ${appSettings.shopName},\nI have placed a new order. Please confirm my order.\n\nConsignee: ${cName}\nMobile: ${mob}`;
+  const num = appSettings.whatsapp.replace(/\D/g, ""), waNum = num.length === 10 ? "91" + num : num;
+  window.location.href = `https://wa.me/${waNum}?text=${encodeURIComponent(plainMsg)}`;
+}
+
+function getItemImg(it) {
+  let p = it.prodId ? products.find(x => x.id === it.prodId) : null;
+  if (!p) p = products.find(x => x.name === it.name && Number(x.price) === Number(it.price));
+  if (!p) p = products.find(x => x.name === it.name);
+  return (p && p.image) ? p.image : "https://via.placeholder.com/60?text=No+Img";
+}
+// --- ADMIN ORDER STATUS, EDIT (QTY + RATE + DELETE ITEM) & PDF SHARE ---
+async function changeOrderStatus(idx, newStatus) {
+  const o = orders[idx];
+  if (!o) return;
+  await db.collection("orders").doc(o.id).update({ status: newStatus });
+  orders[idx].status = newStatus;
+  renderAdminOrders();
+  showToast(`✓ Order marked ${newStatus}`);
+}
+
+function getItemBuyRate(it) {
+  let p = it.prodId ? products.find(x => x.id === it.prodId) : null;
+  if (!p) p = products.find(x => x.name === it.name);
+  return (p && Number(p.buyRate) > 0) ? Number(p.buyRate) : 0;
+}
+
+function renderAoAddDropdown() {
+  const q = (document.getElementById("aoAddSearch").value || "").trim().toLowerCase();
+  const sel = document.getElementById("aoAddSelect");
+  const list = q ? products.filter(p => p.name.toLowerCase().includes(q) || (p.categoryName || "").toLowerCase().includes(q)) : products.slice(0, 60);
+  sel.innerHTML = list.length ? list.slice(0, 60).map(p => `<option value="${p.id}">${escHtml(p.name)} (₹${p.price} | Set ${p.moq})</option>`).join("") : `<option value="">No product found</option>`;
+}
+
+function addCatalogItemToAdminOrder() {
+  const pid = document.getElementById("aoAddSelect").value;
+  const p = products.find(x => x.id === pid);
+  if (!p) return;
+  syncAdminEditInputsToArray();
+  const moq = Number(p.moq) || 1;
+  editingOrderItems.push({ prodId: p.id, name: p.name, category: p.categoryName || "", qty: moq, price: Number(p.price) || 0, sub: moq * (Number(p.price) || 0), remark: "", packed: false });
+  renderAdminOrderEditRows();
+  showToast(`✓ ${p.name} added!`);
+}
+
+function addManualItemToAdminOrder() {
+  const name = document.getElementById("aoManName").value.trim();
+  const qty = parseInt(document.getElementById("aoManQty").value, 10) || 1;
+  const rate = Number(document.getElementById("aoManRate").value) || 0;
+  if (!name) { alert("Enter manual item name."); return; }
+  syncAdminEditInputsToArray();
+  editingOrderItems.push({ prodId: "", name, category: "Custom", qty, price: rate, sub: qty * rate, remark: "", packed: false });
+  document.getElementById("aoManName").value = "";
+  document.getElementById("aoManQty").value = "";
+  document.getElementById("aoManRate").value = "";
+  renderAdminOrderEditRows();
+  showToast(`✓ ${name} added!`);
+}
+
+function openAdminOrderEdit(idx) {
+  editingOrderIdx = idx;
+  const o = orders[idx];
+  editingOrderItems = (o.items || []).map(it => ({ ...it }));
+  document.getElementById("aoHeader").innerHTML = `<strong>Consignee:</strong> ${escHtml(o.customerName)} (${o.mobile})${o.market ? ` • ${escHtml(o.market)}` : ''}${o.remark ? `<br><strong>Remark:</strong> ${escHtml(o.remark)}` : ''}`;
+  document.getElementById("aoDiscPct").value = o.discountPct || 0;
+  document.getElementById("aoDiscFlat").value = o.discountFlat || (o.discountPct ? 0 : (o.discountAmt || 0));
+  document.getElementById("aoExtraCharge").value = o.extraCharge || 0;
+  document.getElementById("aoCartons").value = o.cartons || "";
+  document.getElementById("aoTransport").value = o.transportName || "";
+  document.getElementById("aoAddSearch").value = "";
+  renderAoAddDropdown();
+  renderAdminOrderEditRows();
+  document.getElementById("adminOrdModal").classList.remove("hidden");
+}
+
+function renderAdminOrderEditRows() {
+  document.getElementById("aoItemsBox").innerHTML = editingOrderItems.map((it, i) => {
+    const imgSrc = getItemImg(it);
+    return `<div style="padding:7px 0;border-bottom:1px solid #eee;font-size:12px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
+        <img src="${imgSrc}" class="ord-thumb" onclick="zoomImage('${imgSrc}')" />
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:600;word-break:break-word;">${escHtml(it.name)}</div>
+          <div style="font-size:10px;color:#666;">${escHtml(it.category || '')}</div>
+        </div>
+        <div style="width:58px;">
+          <label style="font-size:10px;">Qty</label>
+          <input type="number" id="aoQty_${i}" min="1" value="${it.qty}" style="margin:0;padding:5px;text-align:center;" oninput="recalcAdminOrder()" />
+        </div>
+        <div style="width:64px;">
+          <label style="font-size:10px;">Rate (₹)</label>
+          <input type="number" id="aoRate_${i}" min="0" value="${it.price}" style="margin:0;padding:5px;text-align:center;" oninput="recalcAdminOrder()" />
+        </div>
+        <button type="button" class="btn-sm" style="background:var(--d);padding:6px 8px;margin-top:14px;" onclick="deleteAdminOrderItem(${i})">X</button>
+      </div>
+      <input type="text" id="aoRem_${i}" value="${escHtml(it.remark || '')}" placeholder="Item remark (optional)" style="margin:5px 0 0;padding:4px 7px;font-size:11px;background:#f9fafb;" />
+    </div>`;
+  }).join("");
+  recalcAdminOrder();
+}
+
+function syncAdminEditInputsToArray() {
+  editingOrderItems = editingOrderItems.map((it, i) => {
+    const qEl = document.getElementById("aoQty_" + i);
+    const rEl = document.getElementById("aoRate_" + i);
+    const rmEl = document.getElementById("aoRem_" + i);
+    const q = qEl ? (Math.max(1, parseInt(qEl.value, 10) || 1)) : it.qty;
+    const r = rEl ? (Math.max(0, Number(rEl.value) || 0)) : it.price;
+    const rm = rmEl ? rmEl.value.trim() : (it.remark || "");
+    return { ...it, qty: q, price: r, sub: q * r, remark: rm };
+  });
+}
+
+function deleteAdminOrderItem(i) {
+  if (editingOrderItems.length <= 1) {
+    alert("At least 1 item must remain in the order. To cancel the full order, delete it from the Orders list.");
+    return;
+  }
+  syncAdminEditInputsToArray();
+  editingOrderItems.splice(i, 1);
+  renderAdminOrderEditRows();
+  showToast("✓ Item removed from order");
+}
+
+function recalcAdminOrder() {
+  let sub = 0, pcs = 0, costTotal = 0;
+  editingOrderItems.forEach((it, i) => {
+    const q = Math.max(0, parseInt((document.getElementById("aoQty_" + i) || {}).value, 10) || 0);
+    const r = Math.max(0, Number((document.getElementById("aoRate_" + i) || {}).value) || 0);
+    pcs += q;
+    sub += q * r;
+    const buy = getItemBuyRate(it);
+    if (buy > 0) costTotal += q * buy;
+  });
+  const pct = Number(document.getElementById("aoDiscPct").value) || 0;
+  const flat = Number(document.getElementById("aoDiscFlat").value) || 0;
+  const extra = Number(document.getElementById("aoExtraCharge").value) || 0;
+  const discTotal = Math.round(sub * pct / 100) + flat;
+  const finalAmt = Math.max(0, sub - discTotal + extra);
+  const estProfit = costTotal > 0 ? Math.round((sub - discTotal) - costTotal) : 0;
+
+  document.getElementById("aoPcs").innerText = pcs;
+  document.getElementById("aoSub").innerText = sub;
+  document.getElementById("aoDiscTotal").innerText = discTotal;
+  document.getElementById("aoExtraVal").innerText = extra;
+  document.getElementById("aoExtraRow").classList.toggle("hidden", extra <= 0);
+  document.getElementById("aoFinal").innerText = finalAmt;
+  document.getElementById("aoProfitVal").innerText = estProfit;
+}
+
+async function saveAdminOrder(sendWA) {
+  const o = orders[editingOrderIdx]; if (!o) return;
+  let sub = 0, totalPcs = 0;
+  const updatedItems = editingOrderItems.map((it, i) => {
+    const q = Math.max(1, parseInt(document.getElementById("aoQty_" + i).value, 10) || 1);
+    const r = Math.max(0, Number(document.getElementById("aoRate_" + i).value) || 0);
+    const rm = (document.getElementById("aoRem_" + i) || {}).value || "";
+    const s = q * r;
+    totalPcs += q;
+    sub += s;
+    return { ...it, qty: q, price: r, sub: s, remark: rm.trim() };
+  });
+  const pct = Number(document.getElementById("aoDiscPct").value) || 0;
+  const flat = Number(document.getElementById("aoDiscFlat").value) || 0;
+  const extraCharge = Number(document.getElementById("aoExtraCharge").value) || 0;
+  const cartons = document.getElementById("aoCartons").value.trim();
+  const transportName = document.getElementById("aoTransport").value.trim();
+  const discTotal = Math.round(sub * pct / 100) + flat;
+  const finalAmt = Math.max(0, sub - discTotal + extraCharge);
+
+  const upd = { items: updatedItems, totalPcs, subtotal: sub, discountPct: pct, discountFlat: flat, discountAmt: discTotal, extraCharge, cartons, transportName, totalAmt: finalAmt };
+  await db.collection("orders").doc(o.id).update(upd);
+  const fullOrd = { ...o, ...upd };
+  orders[editingOrderIdx] = fullOrd;
+  renderAdminOrders();
+  document.getElementById("adminOrdModal").classList.add("hidden");
+  await shareOrDownloadPDF(fullOrd, sendWA);
+}
+
+function buildPDFDoc(ord) {
+  const { jsPDF } = window.jspdf, doc = new jsPDF();
+  doc.setFontSize(16); doc.text("ESTIMATE / BILL", 105, 16, { align: "center" });
+  doc.setFontSize(11);
+  doc.text("Consignor: " + (appSettings.shopName || "Raza Traders"), 14, 28);
+  doc.text("Consignee: " + ord.customerName + " (" + ord.mobile + ")", 14, 35);
+  doc.text("Date: " + new Date().toLocaleDateString("en-IN"), 150, 28);
+  let topY = 40;
+  if (ord.remark) {
+    doc.setFontSize(10);
+    doc.text("Remark: " + String(ord.remark).slice(0, 80), 14, 42);
+    topY = 46;
+  }
+  doc.line(14, topY, 196, topY);
+  doc.setFontSize(10);
+  doc.text("#", 14, topY + 7); doc.text("Item (Category)", 22, topY + 7); doc.text("Qty", 125, topY + 7); doc.text("Rate", 145, topY + 7); doc.text("Amount", 170, topY + 7);
+  doc.line(14, topY + 10, 196, topY + 10);
+  let y = topY + 17;
+  (ord.items || []).forEach((it, i) => {
+    if (y > 265) { doc.addPage(); y = 20; }
+    doc.text(String(i + 1), 14, y);
+    doc.text(`${it.name} (${it.category || ''})`.slice(0, 48), 22, y);
+    doc.text(String(it.qty), 125, y);
+    doc.text("Rs." + it.price, 145, y);
+    doc.text("Rs." + it.sub, 170, y);
+    y += 8;
+  });
+  doc.line(14, y, 196, y); y += 8;
+  const sub = ord.subtotal || ord.totalAmt, disc = ord.discountAmt || 0;
+  doc.setFontSize(11);
+  doc.text(`Total Pieces: ${ord.totalPcs}`, 14, y);
+  doc.text(`Subtotal: Rs.${sub}`, 140, y); y += 7;
+  if (disc > 0) {
+    const lbl = ord.voucherCode ? `Discount (${ord.voucherCode}):` : (ord.discountPct ? `Discount (${ord.discountPct}%):` : "Discount:");
+    doc.text(`${lbl} -Rs.${disc}`, 140, y); y += 7;
+  }
+  if (Number(ord.extraCharge) > 0) {
+    doc.text(`Packing/Transport: +Rs.${ord.extraCharge}`, 140, y); y += 7;
+  }
+  doc.setFontSize(13);
+  doc.text(`Grand Total: Rs.${ord.totalAmt}`, 140, y);
+  if (ord.cartons || ord.transportName) {
+    y += 8;
+    doc.setFontSize(10);
+    doc.text(`Dispatch: ${ord.cartons ? ord.cartons + ' | ' : ''}${ord.transportName || ''}`, 14, y);
+  }
+  return doc;
+}
+
+async function shareOrDownloadPDF(ord, isShare) {
+  const doc = buildPDFDoc(ord), fileName = `Estimate_${ord.mobile}.pdf`;
+  if (isShare && navigator.canShare) {
+    try {
+      const file = new File([doc.output("blob")], fileName, { type: "application/pdf" });
+      if (navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file], title: "Estimate Bill",
+          text: `Hello ${ord.customerName || 'Customer'}, your order with ${appSettings.shopName} is confirmed. Please find your Estimate PDF attached.`
+        });
+        return;
+      }
+    } catch (e) { if (e.name === "AbortError") return; }
+  }
+  doc.save(fileName);
+  if (isShare) {
+    const n = String(ord.mobile).replace(/\D/g, ""), waNum = n.length === 10 ? "91" + n : n;
+    window.open(`https://wa.me/${waNum}?text=${encodeURIComponent(`Hello ${ord.customerName || 'Customer'}, your order with ${appSettings.shopName} is confirmed. Estimate PDF attached.`)}`, "_blank");
+  }
+}
+
+function zoomImage(src) { document.getElementById("zoomImg").src = src; document.getElementById("zoomModal").classList.remove("hidden"); }
+
+function switchTab(tab) {
+  ["prod","cat","ord","usr","off","set"].forEach(t => {
+    const cap = t.charAt(0).toUpperCase() + t.slice(1);
+    document.getElementById("admin" + cap + "Tab").classList.toggle("hidden", t !== tab);
+    document.getElementById("tab" + cap + "Btn").classList.toggle("active", t === tab);
+  });
+  if (tab === "ord") renderAdminOrders();
+  if (tab === "usr") renderAdminCustomers();
+  if (tab === "off") { renderAdminVouchers(); renderAdminBanners(); }
+  if (tab === "set") renderAdminDevices();
+}
+
+function calcSalePrice() {
+  const buy = parseFloat(document.getElementById("prodBuyRate").value);
+  const mar = parseFloat(document.getElementById("prodMargin").value);
+  if (!isNaN(buy) && buy > 0) {
+    const m = isNaN(mar) ? 0 : mar;
+    document.getElementById("prodPrice").value = Math.round(buy * (1 + m / 100));
+  }
+}
+
+function compressFileToBase64(file, maxW, quality) {
+  return new Promise((resolve) => {
+    const r = new FileReader();
+    r.onload = ev => {
+      const img = new Image();
+      img.onload = () => {
+        const c = document.createElement("canvas"), s = Math.min(1, maxW / img.width);
+        c.width = img.width * s; c.height = img.height * s;
+        c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+        resolve(c.toDataURL("image/jpeg", quality || 0.7));
+      };
+      img.src = ev.target.result;
+    };
+    r.readAsDataURL(file);
+  });
+}
+
+async function compressImg(e, target) {
+  const file = e.target.files[0]; if (!file) return;
+  const b64 = await compressFileToBase64(file, 500, 0.7);
+  if (target === "logo") { upLogoImg = b64; const p = document.getElementById("logoPreview"); p.src = b64; p.classList.remove("hidden"); }
+}
+
+// --- MULTI-PHOTO QUEUE FOR PRODUCTS ---
+async function handleProdFiles(e) {
+  const files = Array.from(e.target.files || []);
+  if (!files.length) return;
+  const isEditing = !!document.getElementById("editProdId").value;
+  if (isEditing) {
+    photoQueue = []; queueIdx = 0;
+    document.getElementById("photoQueueBar").classList.add("hidden");
+    upProdImg = await compressFileToBase64(files[0], 500, 0.7);
+    const p = document.getElementById("imgPreview"); p.src = upProdImg; p.classList.remove("hidden");
+    return;
+  }
+  photoQueue = files;
+  queueIdx = 0;
+  await loadQueueItem();
+}
+
+async function loadQueueItem() {
+  if (!photoQueue.length || queueIdx >= photoQueue.length) {
+    clearPhotoQueue();
+    return;
+  }
+  const bar = document.getElementById("photoQueueBar");
+  if (photoQueue.length > 1) {
+    document.getElementById("photoQueueText").innerText = `Photo ${queueIdx + 1} of ${photoQueue.length}`;
+    bar.classList.remove("hidden");
+  } else {
+    bar.classList.add("hidden");
+  }
+  upProdImg = await compressFileToBase64(photoQueue[queueIdx], 500, 0.7);
+  const p = document.getElementById("imgPreview"); p.src = upProdImg; p.classList.remove("hidden");
+  document.getElementById("prodName").focus();
+}
+
+async function skipQueuePhoto() {
+  queueIdx++;
+  if (queueIdx < photoQueue.length) {
+    await loadQueueItem();
+    showToast(`Skipped to ${queueIdx + 1}/${photoQueue.length}`);
+  } else {
+    clearPhotoQueue();
+    showToast("All queued photos done");
+  }
+}
+
+function clearPhotoQueue() {
+  photoQueue = []; queueIdx = 0; upProdImg = "";
+  document.getElementById("prodImgFile").value = "";
+  document.getElementById("photoQueueBar").classList.add("hidden");
+  document.getElementById("imgPreview").classList.add("hidden");
+}
+
+function getNextTopOrder() {
+  const maxOrd = products.length ? Math.max(...products.map(p => p._order || 0)) : 0;
+  return Math.max(Date.now(), maxOrd) + 100;
+}
+
+function getCurrentProdFilters() {
+  const filters = {};
+  document.querySelectorAll(".prod-dyn-filter").forEach(sel => {
+    const grp = sel.getAttribute("data-group");
+    if (grp && sel.value) filters[grp] = sel.value;
+  });
+  return filters;
+}
+
+async function saveProduct() {
+  const name = document.getElementById("prodName").value.trim(), description = document.getElementById("prodDesc").value.trim();
+  const categoryId = document.getElementById("prodCat").value;
+  const filters = getCurrentProdFilters();
+  const subCategory = Object.values(filters).join(", ");
+  const buyRate = Number(document.getElementById("prodBuyRate").value) || 0;
+  const marginVal = document.getElementById("prodMargin").value;
+  const marginPct = Number(marginVal) || 0;
+  const price = Number(document.getElementById("prodPrice").value);
+  const moqVal = document.getElementById("prodMoq").value;
+  const moq = Number(moqVal);
+  const editId = document.getElementById("editProdId").value;
+  if (!name || !categoryId || !price || !moq) { alert("Name, Category, Sale Rate and MOQ are required!"); return; }
+
+  stickyMargin = marginVal !== "" ? marginVal : "30";
+  stickyMoq = moqVal !== "" ? moqVal : "6";
+
+  const btn = document.getElementById("saveProdBtn"); btn.innerText = "Saving..."; btn.disabled = true;
+  try {
+    const catObj = categories.find(c => c.id === categoryId);
+    const nowMs = Date.now();
+    const data = { name, description, categoryId, categoryName: catObj ? catObj.name : "", filters, subCategory, buyRate, marginPct, price, moq, updatedAtMs: nowMs, deleted: false };
+    if (upProdImg) data.image = upProdImg;
+    if (editId) {
+      await db.collection("products").doc(editId).update(data);
+      const idx = products.findIndex(x => x.id === editId);
+      if (idx !== -1) products[idx] = { ...products[idx], ...data };
+      sortProductsList();
+      renderAdminProducts();
+      resetProdForm(true);
+      bumpCatalogMeta("lastProdUpdate");
+      saveCatalogSnapshotToCache();
+      showToast("✓ Product updated!");
+    } else {
+      const topOrd = getNextTopOrder();
+      data.sortOrder = topOrd;
+      data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+      const docRef = await db.collection("products").add(data);
+      products.unshift({ id: docRef.id, ...data, _order: topOrd, _createdMs: nowMs });
+      sortProductsList();
+      renderAdminProducts();
+      resetProdForm(false);
+      bumpCatalogMeta("lastProdUpdate");
+      saveCatalogSnapshotToCache();
+
+      if (photoQueue.length > 0 && queueIdx + 1 < photoQueue.length) {
+        queueIdx++;
+        await loadQueueItem();
+        showToast(`✓ Saved! Next (${queueIdx + 1}/${photoQueue.length})`);
+      } else {
+        clearPhotoQueue();
+        showToast("✓ Product saved!");
+        document.getElementById("prodName").focus();
+      }
+    }
+  } catch (e) { alert("Error: " + e.message); }
+  finally { btn.innerText = "Save Product"; btn.disabled = false; }
+}
+
+// --- MOVE PRODUCT TOP / UP / DOWN ---
+async function moveProductTop(id) {
+  const idx = products.findIndex(p => p.id === id);
+  if (idx <= 0) { showToast("Already at Top!"); return; }
+  const topOrd = getNextTopOrder();
+  products[idx]._order = topOrd;
+  products[idx].sortOrder = topOrd;
+  sortProductsList();
+  renderAdminProducts();
+  showToast("✓ Moved to Top!");
+  await db.collection("products").doc(id).update({ sortOrder: topOrd, updatedAtMs: Date.now() });
+  bumpCatalogMeta("lastProdUpdate");
+  saveCatalogSnapshotToCache();
+}
+
+async function moveProductStep(id, dir) {
+  const f = document.getElementById("adminFilterCat").value;
+  const viewList = f === "ALL" ? products : products.filter(p => p.categoryId === f);
+  const vIdx = viewList.findIndex(p => p.id === id);
+  const targetIdx = vIdx + dir;
+  if (vIdx === -1 || targetIdx < 0 || targetIdx >= viewList.length) return;
+
+  const itemA = viewList[vIdx];
+  const itemB = viewList[targetIdx];
+  let ordA = itemA._order || 0;
+  let ordB = itemB._order || 0;
+  if (ordA === ordB) {
+    ordA = dir < 0 ? ordB + 1 : ordB - 1;
+  } else {
+    const tmp = ordA;
+    ordA = ordB;
+    ordB = tmp;
+  }
+  itemA._order = ordA; itemA.sortOrder = ordA;
+  itemB._order = ordB; itemB.sortOrder = ordB;
+  sortProductsList();
+  renderAdminProducts();
+  const nowMs = Date.now();
+  await Promise.all([
+    db.collection("products").doc(itemA.id).update({ sortOrder: ordA, updatedAtMs: nowMs }),
+    db.collection("products").doc(itemB.id).update({ sortOrder: ordB, updatedAtMs: nowMs })
+  ]);
+  bumpCatalogMeta("lastProdUpdate");
+  saveCatalogSnapshotToCache();
+}
+
+async function toggleStock(id, curOos) {
+  const nowMs = Date.now();
+  await db.collection("products").doc(id).update({ outOfStock: !curOos, updatedAtMs: nowMs });
+  const p = products.find(x => x.id === id);
+  if (p) { p.outOfStock = !curOos; p.updatedAtMs = nowMs; }
+  renderAdminProducts();
+  bumpCatalogMeta("lastProdUpdate");
+  saveCatalogSnapshotToCache();
+}
+
+function fillProdFormFromObj(p, isEdit) {
+  clearPhotoQueue();
+  document.getElementById("editProdId").value = isEdit ? p.id : "";
+  document.getElementById("prodName").value = p.name;
+  document.getElementById("prodDesc").value = p.description || "";
+  document.getElementById("prodCat").value = p.categoryId;
+  const existingFilters = (p.filters && typeof p.filters === "object") ? { ...p.filters } : {};
+  if (!Object.keys(existingFilters).length && p.subCategory) {
+    const cat = categories.find(c => c.id === p.categoryId);
+    const firstGrp = (cat && cat.filterGroups && cat.filterGroups[0]) ? cat.filterGroups[0] : "";
+    if (firstGrp) existingFilters[firstGrp] = p.subCategory;
+  }
+  renderProdFilterInputs(existingFilters);
+  document.getElementById("prodBuyRate").value = p.buyRate || "";
+  document.getElementById("prodMargin").value = p.marginPct !== undefined ? p.marginPct : stickyMargin;
+  document.getElementById("prodPrice").value = p.price;
+  document.getElementById("prodMoq").value = p.moq || stickyMoq;
+  if (isEdit) {
+    upProdImg = p.image || "";
+    if (upProdImg) { const pr = document.getElementById("imgPreview"); pr.src = upProdImg; pr.classList.remove("hidden"); }
+    document.getElementById("prodFormTitle").innerText = "Edit Product";
+    document.getElementById("cancelEditBtn").classList.remove("hidden");
+  } else {
+    document.getElementById("prodFormTitle").innerText = "Add New Product (Copied)";
+    document.getElementById("cancelEditBtn").classList.remove("hidden");
+  }
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function editProduct(id) {
+  const p = products.find(x => x.id === id);
+  if (p) fillProdFormFromObj(p, true);
+}
+
+function copyProduct(id) {
+  const p = products.find(x => x.id === id);
+  if (!p) return;
+  fillProdFormFromObj(p, false);
+  showToast("✓ Copied! Select photo & save");
+}
+
+function resetProdForm(clearAll) {
+  ["editProdId","prodName","prodDesc","prodBuyRate","prodPrice"].forEach(id => document.getElementById(id).value = "");
+  document.getElementById("prodMargin").value = stickyMargin;
+  document.getElementById("prodMoq").value = stickyMoq;
+  document.getElementById("prodFormTitle").innerText = "Add New Product";
+  document.getElementById("cancelEditBtn").classList.add("hidden");
+  if (clearAll) {
+    clearPhotoQueue();
+    document.querySelectorAll(".prod-dyn-filter").forEach(sel => sel.value = "");
+  }
+}
+
+async function deleteProduct(id) {
+  if (confirm("Delete this product?")) {
+    await db.collection("products").doc(id).update({
+      deleted: true,
+      image: "",
+      updatedAtMs: Date.now()
+    });
+    products = products.filter(p => p.id !== id);
+    renderAdminProducts();
+    bumpCatalogMeta("lastProdUpdate");
+    saveCatalogSnapshotToCache();
+    showToast("✓ Deleted");
+  }
+}
+
+function toggleAdminOosFilter() {
+  adminOosOnly = !adminOosOnly;
+  const btn = document.getElementById("adminOosFilterBtn");
+  btn.style.background = adminOosOnly ? "var(--d)" : "#6b7280";
+  btn.innerText = adminOosOnly ? "Showing OOS Only" : "Out of Stock Only";
+  renderAdminProducts();
+}
+
+function renderAdminProducts() {
+  const f = document.getElementById("adminFilterCat").value || "ALL";
+  const q = (document.getElementById("adminSearchProd").value || "").trim().toLowerCase();
+  const catFiltered = f === "ALL" ? products : products.filter(p => p.categoryId === f);
+
+  const countTitle = document.getElementById("adminProdCountTitle");
+  if (f === "ALL") {
+    countTitle.innerText = `All Products (${products.length})`;
+  } else {
+    const catObj = categories.find(c => c.id === f);
+    const cName = catObj ? catObj.name : "Category";
+    countTitle.innerText = `${cName} Products (${catFiltered.length} / Total ${products.length})`;
+  }
+
+  let list = catFiltered;
+  if (adminOosOnly) list = list.filter(p => !!p.outOfStock);
+  if (q) {
+    list = list.filter(p => {
+      const fStr = getProductFilterValues(p).join(" ").toLowerCase();
+      return p.name.toLowerCase().includes(q) || (p.description || "").toLowerCase().includes(q) || fStr.includes(q);
+    });
+  }
+
+  document.getElementById("adminProdList").innerHTML = list.length ? list.map((p, idx) => {
+    const fVals = getProductFilterValues(p);
+    const fBadges = fVals.map(v => `<span class="badge badge-pur">${escHtml(v)}</span>`).join(" ");
+    return `
+    <div class="list-item" style="flex-direction:column;align-items:stretch;gap:6px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+        <div style="display:flex;align-items:center;gap:8px;min-width:0;">
+          <img src="${p.image || 'https://via.placeholder.com/60'}" />
+          <div style="min-width:0;">
+            <div style="font-weight:600;font-size:13px;">${escHtml(p.name)} ${p.outOfStock ? '<span class="badge badge-red">OOS</span>' : ''} ${fBadges}</div>
+            <div style="font-size:11px;color:#555;">Sale: ₹${p.price} ${p.buyRate ? `(Buy: ₹${p.buyRate} +${p.marginPct || 0}%)` : ''} | Set: ${p.moq} | <span class="badge">${escHtml(p.categoryName)}</span></div>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:4px;">
+        <div style="display:flex;gap:4px;">
+          <button class="btn-sm" style="background:#0f766e;" onclick="moveProductTop('${p.id}')">Top</button>
+          <button class="btn-sm" style="background:#4b5563;" ${idx === 0 ? 'disabled' : ''} onclick="moveProductStep('${p.id}', -1)">↑</button>
+          <button class="btn-sm" style="background:#4b5563;" ${idx === list.length - 1 ? 'disabled' : ''} onclick="moveProductStep('${p.id}', 1)">↓</button>
+        </div>
+        <div style="display:flex;gap:4px;">
+          <button class="btn-sm" style="background:#6366f1;" onclick="copyProduct('${p.id}')">Copy</button>
+          <button class="btn-sm" style="background:${p.outOfStock ? 'var(--s)' : '#f59e0b'};" onclick="toggleStock('${p.id}', ${!!p.outOfStock})">${p.outOfStock ? 'In' : 'Out'}</button>
+          <button class="btn-sm" style="background:var(--p);" onclick="editProduct('${p.id}')">Edit</button>
+          <button class="btn-sm" style="background:var(--d);" onclick="deleteProduct('${p.id}')">X</button>
+        </div>
+      </div>
+    </div>`;
+  }).join("") : `<p style="color:var(--m);font-size:13px;">No products found.</p>`;
+}
+
+// --- CATEGORIES: ORDER ARRANGE (↑/↓) & SEASONAL LIVE/OFF SWITCH ---
+async function saveCategory() {
+  const name = document.getElementById("catName").value.trim(), password = document.getElementById("catPass").value.trim();
+  if (!name || !password) { alert("Category name and password are required."); return; }
+  const maxOrd = categories.length ? Math.max(...categories.map(c => c._order || 0)) : 0;
+  const sortOrder = Math.max(Date.now(), maxOrd) + 100;
+  await db.collection("categories").add({ name, password, offSeason: false, sortOrder, filterGroups: [], createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+  document.getElementById("catName").value = ""; document.getElementById("catPass").value = "";
+  await loadCategories(); bumpCatalogMeta("lastCatUpdate"); saveCatalogSnapshotToCache(); showToast("✓ Category saved!");
+}
+
+async function moveCategoryStep(id, dir) {
+  const idx = categories.findIndex(c => c.id === id);
+  const targetIdx = idx + dir;
+  if (idx === -1 || targetIdx < 0 || targetIdx >= categories.length) return;
+
+  const catA = categories[idx];
+  const catB = categories[targetIdx];
+  let ordA = catA._order || 0;
+  let ordB = catB._order || 0;
+  if (ordA === ordB) {
+    ordA = dir < 0 ? ordB - 1 : ordB + 1;
+  } else {
+    const tmp = ordA;
+    ordA = ordB;
+    ordB = tmp;
+  }
+  catA._order = ordA; catA.sortOrder = ordA;
+  catB._order = ordB; catB.sortOrder = ordB;
+  sortCategoriesList();
+  renderAdminCategories();
+  populateCategoryDropdowns();
+  showToast("✓ Category order updated!");
+  await Promise.all([
+    db.collection("categories").doc(catA.id).update({ sortOrder: ordA }),
+    db.collection("categories").doc(catB.id).update({ sortOrder: ordB })
+  ]);
+  bumpCatalogMeta("lastCatUpdate");
+  saveCatalogSnapshotToCache();
+}
+
+async function toggleCategorySeason(id, curOff) {
+  const nextOff = !curOff;
+  await db.collection("categories").doc(id).update({ offSeason: nextOff });
+  const c = categories.find(x => x.id === id);
+  if (c) c.offSeason = nextOff;
+  renderAdminCategories();
+  bumpCatalogMeta("lastCatUpdate");
+  saveCatalogSnapshotToCache();
+  showToast(nextOff ? "⏸️ Set to Off-Season" : "🟢 Category is Live!");
+}
+
+async function editCatPass(id, oldPass) { const np = prompt("Enter New Password:", oldPass); if (np && np.trim()) { await db.collection("categories").doc(id).update({ password: np.trim() }); await loadCategories(); bumpCatalogMeta("lastCatUpdate"); saveCatalogSnapshotToCache(); } }
+async function deleteCategory(id) { if (confirm("Delete this category?")) { await db.collection("categories").doc(id).delete(); await loadCategories(); bumpCatalogMeta("lastCatUpdate"); saveCatalogSnapshotToCache(); } }
+function copyCategoryLink(name, pass) {
+  const url = window.location.origin + window.location.pathname;
+  navigator.clipboard.writeText(`*${appSettings.shopName} - ${name} Catalog*\nLink: ${url}?pass=${encodeURIComponent(pass)}\nRate Password: ${pass}`).then(() => showToast("✓ Link & Password copied!"));
+}
+
+function renderAdminCategories() {
+  document.getElementById("adminCatList").innerHTML = categories.length ? categories.map((c, idx) => `
+    <div class="list-item" style="flex-direction:column;align-items:stretch;gap:6px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <div style="font-weight:700;font-size:14px;">${idx + 1}. ${escHtml(c.name)} ${c.offSeason ? '<span class="badge badge-org">Off-Season</span>' : '<span class="badge badge-grn">Live</span>'}</div>
+          <div style="font-size:12px;color:var(--p);">Pass: <strong>${escHtml(c.password)}</strong></div>
+        </div>
+        <div style="display:flex;gap:4px;">
+          <button class="btn-sm" style="background:#4b5563;" ${idx === 0 ? 'disabled' : ''} onclick="moveCategoryStep('${c.id}', -1)">↑</button>
+          <button class="btn-sm" style="background:#4b5563;" ${idx === categories.length - 1 ? 'disabled' : ''} onclick="moveCategoryStep('${c.id}', 1)">↓</button>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:4px;">
+        <button class="btn-sm" style="background:${c.offSeason ? '#6b7280' : '#0f766e'};" onclick="toggleCategorySeason('${c.id}', ${!!c.offSeason})">${c.offSeason ? 'Off' : 'Live'}</button>
+        <button class="btn-sm" style="background:var(--s);" onclick="copyCategoryLink('${escHtml(c.name)}','${escHtml(c.password)}')">Share</button>
+        <button class="btn-sm" style="background:var(--p);" onclick="editCatPass('${c.id}','${escHtml(c.password)}')">Pass</button>
+        <button class="btn-sm" style="background:var(--d);" onclick="deleteCategory('${c.id}')">X</button>
+      </div>
+    </div>`).join("") : `<p style="color:var(--m);font-size:13px;">No categories yet.</p>`;
+}
+
+// --- MULTI-GROUP FILTER CONFIGURATION ---
+async function addFilterGroup() {
+  const catId = document.getElementById("filterConfigCat").value;
+  if (!catId) { alert("Add a Category first."); return; }
+  const gName = document.getElementById("newFilterGroupInp").value.trim();
+  if (!gName) { alert("Filter type name is required (Ex: Gender, Material)."); return; }
+  const cat = categories.find(c => c.id === catId);
+  if (!cat) return;
+  const groups = [...(cat.filterGroups || [])];
+  if (groups.some(g => g.toLowerCase() === gName.toLowerCase())) {
+    alert("This filter type already exists!"); return;
+  }
+  groups.push(gName);
+  await db.collection("categories").doc(catId).update({ filterGroups: groups });
+  cat.filterGroups = groups;
+  document.getElementById("newFilterGroupInp").value = "";
+  renderAdminFilterConfig(gName);
+  renderProdFilterInputs(getCurrentProdFilters());
+  showToast(`✓ "${gName}" filter created!`);
+}
+
+async function removeFilterGroup(btn) {
+  const catId = document.getElementById("filterConfigCat").value;
+  const gName = btn.getAttribute("data-grp");
+  if (!confirm(`Delete "${gName}" filter type and its options?`)) return;
+  const cat = categories.find(c => c.id === catId);
+  if (!cat) return;
+  const groups = (cat.filterGroups || []).filter(g => g !== gName);
+  const upd = { filterGroups: groups };
+  if (cat.filterLabel === gName) upd.filterLabel = "";
+  await db.collection("categories").doc(catId).update(upd);
+  cat.filterGroups = groups;
+  if (cat.filterLabel === gName) cat.filterLabel = "";
+
+  const toDel = subCategories.filter(s => s.categoryId === catId && (s.groupName === gName || (!s.groupName && !groups.length)));
+  await Promise.all(toDel.map(s => db.collection("subcategories").doc(s.id).delete()));
+  subCategories = subCategories.filter(s => !toDel.some(d => d.id === s.id));
+
+  renderAdminFilterConfig();
+  renderProdFilterInputs(getCurrentProdFilters());
+  showToast("✓ Filter type removed!");
+}
+
+async function saveSubCategory() {
+  const catId = document.getElementById("filterConfigCat").value;
+  const gName = document.getElementById("filterConfigGroup").value;
+  if (!catId || !gName) { alert("Create and select a Filter Type first."); return; }
+  const name = document.getElementById("subCatName").value.trim();
+  if (!name) { alert("Option name is required."); return; }
+  await db.collection("subcategories").add({ name, categoryId: catId, groupName: gName, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+  document.getElementById("subCatName").value = "";
+  await loadSubCategories();
+  bumpCatalogMeta("lastCatUpdate");
+  saveCatalogSnapshotToCache();
+  document.getElementById("filterConfigGroup").value = gName;
+  showToast(`✓ Added to ${gName}!`);
+}
+
+async function deleteSubCategory(id) {
+  const curGrp = document.getElementById("filterConfigGroup").value;
+  await db.collection("subcategories").doc(id).delete();
+  await loadSubCategories();
+  bumpCatalogMeta("lastCatUpdate");
+  saveCatalogSnapshotToCache();
+  if (curGrp) document.getElementById("filterConfigGroup").value = curGrp;
+}
+
+function renderAdminFilterConfig(selectGroup) {
+  const catId = document.getElementById("filterConfigCat").value;
+  const cat = categories.find(c => c.id === catId);
+  const groups = getCatFilterGroups(cat);
+
+  const chipsEl = document.getElementById("adminFilterGroupsChips");
+  const addSec = document.getElementById("filterOptionAddSection");
+  const grpSel = document.getElementById("filterConfigGroup");
+  const prevSel = selectGroup || grpSel.value;
+
+  if (!groups.length) {
+    chipsEl.innerHTML = `<span style="font-size:12px;color:var(--m);">No filter types created yet for this category.</span>`;
+    addSec.classList.add("hidden");
+    document.getElementById("adminSubCatList").innerHTML = "";
+    return;
+  }
+
+  chipsEl.innerHTML = groups.map(g => `<span class="fg-tag">${escHtml(g)} <button type="button" data-grp="${escHtml(g)}" onclick="removeFilterGroup(this)">×</button></span>`).join("");
+  addSec.classList.remove("hidden");
+  grpSel.innerHTML = groups.map(g => `<option value="${escHtml(g)}">${escHtml(g)}</option>`).join("");
+  if (prevSel && groups.includes(prevSel)) grpSel.value = prevSel;
+
+  const catSubs = subCategories.filter(s => s.categoryId === catId);
+  let listHtml = "";
+  groups.forEach(g => {
+    const opts = catSubs.filter(s => (s.groupName || groups[0]) === g);
+    listHtml += `<div style="margin-bottom:10px;padding:8px;background:#f9fafb;border-radius:8px;border:1px solid #e5e7eb;">
+      <div style="font-size:12px;font-weight:700;color:var(--p);margin-bottom:6px;">${escHtml(g)} (${opts.length})</div>
+      ${opts.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px;">${opts.map(o => `
+        <span style="display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid #d1d5db;padding:4px 8px;border-radius:6px;font-size:12px;font-weight:600;">
+          ${escHtml(o.name)} <button type="button" style="background:none;border:none;color:var(--d);font-weight:700;cursor:pointer;" onclick="deleteSubCategory('${o.id}')">×</button>
+        </span>`).join("")}</div>` : `<div style="font-size:11px;color:var(--m);">No options added yet.</div>`}
+    </div>`;
+  });
+  document.getElementById("adminSubCatList").innerHTML = listHtml;
+}
+
+function onProdCatChange() {
+  renderProdFilterInputs(getCurrentProdFilters());
+}
+
+function renderProdFilterInputs(selectedMap = {}) {
+  const catId = document.getElementById("prodCat").value;
+  const container = document.getElementById("prodDynamicFilters");
+  const cat = categories.find(c => c.id === catId);
+  const groups = getCatFilterGroups(cat);
+  const catSubs = subCategories.filter(s => s.categoryId === catId);
+
+  if (!groups.length) {
+    container.innerHTML = "";
+    return;
+  }
+
+  container.innerHTML = groups.map(gName => {
+    const opts = catSubs.filter(s => (s.groupName || groups[0]) === gName);
+    const curVal = selectedMap[gName] || "";
+    const optHtml = `<option value="">None</option>` + opts.map(o => `<option value="${escHtml(o.name)}" ${curVal.toLowerCase() === o.name.toLowerCase() ? 'selected' : ''}>${escHtml(o.name)}</option>`).join("");
+    return `<div>
+      <label>${escHtml(gName)}</label>
+      <select class="prod-dyn-filter" data-group="${escHtml(gName)}">${optHtml}</select>
+    </div>`;
+  }).join("");
+}
+
+function populateCategoryDropdowns() {
+  const curProdCat = document.getElementById("prodCat").value;
+  const curFilterCat = document.getElementById("adminFilterCat").value;
+  const curCfgCat = document.getElementById("filterConfigCat").value;
+  const opts = categories.map(c => `<option value="${c.id}">${escHtml(c.name)}</option>`).join("");
+  document.getElementById("prodCat").innerHTML = opts || `<option value="">Add Category First</option>`;
+  document.getElementById("adminFilterCat").innerHTML = `<option value="ALL">All Categories</option>` + opts;
+  document.getElementById("filterConfigCat").innerHTML = opts || `<option value="">Add Category First</option>`;
+  if (curProdCat && categories.some(c => c.id === curProdCat)) document.getElementById("prodCat").value = curProdCat;
+  if (curFilterCat) document.getElementById("adminFilterCat").value = curFilterCat;
+  if (curCfgCat && categories.some(c => c.id === curCfgCat)) document.getElementById("filterConfigCat").value = curCfgCat;
+  renderProdFilterInputs(getCurrentProdFilters());
+  renderAdminFilterConfig();
+  renderAdminProducts();
+}
+
+// --- MULTIPLE BANNERS (UP TO 5) ---
+async function addAdBannerFile(e) {
+  const file = e.target.files[0];
+  e.target.value = "";
+  if (!file) return;
+  const cur = appSettings.adBanners || [];
+  if (cur.length >= 5) { alert("Maximum 5 offer banners allowed. Remove one first."); return; }
+  const b64 = await compressFileToBase64(file, 680, 0.65);
+  const nextBanners = [...cur, b64];
+  const totalBytes = JSON.stringify(nextBanners).length;
+  if (totalBytes > 750000) {
+    alert("Banner image size is too large. Please remove an old banner first.");
+    return;
+  }
+  await db.collection("settings").doc("config").set({ adBanners: nextBanners, adBanner: nextBanners[0] || "" }, { merge: true });
+  appSettings.adBanners = nextBanners;
+  appSettings.adBanner = nextBanners[0] || "";
+  renderAdminBanners();
+  showToast(`✓ Banner ${nextBanners.length} added!`);
+}
+
+async function removeAdBannerAt(idx) {
+  const nextBanners = (appSettings.adBanners || []).filter((_, i) => i !== idx);
+  await db.collection("settings").doc("config").set({ adBanners: nextBanners, adBanner: nextBanners[0] || "" }, { merge: true });
+  appSettings.adBanners = nextBanners;
+  appSettings.adBanner = nextBanners[0] || "";
+  renderAdminBanners();
+  showToast("✓ Banner removed!");
+}
+
+function renderAdminBanners() {
+  const list = appSettings.adBanners || [];
+  document.getElementById("bannerCountTxt").innerText = list.length;
+  document.getElementById("adminBannerGrid").innerHTML = list.map((src, i) => `
+    <div class="banner-thumb-box">
+      <img src="${src}" onclick="zoomImage('${src}')" />
+      <button type="button" onclick="removeAdBannerAt(${i})">×</button>
+    </div>`).join("");
+}
+
+// --- SMART VOUCHER RULES ---
+async function saveVoucher() {
+  const code = document.getElementById("vCode").value.trim().toUpperCase();
+  const discType = document.getElementById("vDiscType").value;
+  const discount = Number(document.getElementById("vDisc").value) || 0;
+  const minOrder = Number(document.getElementById("vMin").value) || 0;
+  const maxUses = Number(document.getElementById("vMaxUses").value) || 0;
+  const firstTimeOnly = document.getElementById("vFirstTime").checked;
+  if (!code || !discount) { alert("Voucher Code and Discount Value are required!"); return; }
+  await db.collection("vouchers").doc(code).set({ code, discType, discount, minOrder, maxUses, firstTimeOnly });
+  document.getElementById("vCode").value = "";
+  document.getElementById("vMin").value = "";
+  document.getElementById("vDisc").value = "";
+  document.getElementById("vMaxUses").value = "0";
+  document.getElementById("vFirstTime").checked = false;
+  await loadVouchers(); bumpCatalogMeta("lastVoucherUpdate"); saveCatalogSnapshotToCache(); showToast("✓ Voucher saved!");
+}
+
+async function deleteVoucher(id) { if (confirm("Delete voucher?")) { await db.collection("vouchers").doc(id).delete(); await loadVouchers(); bumpCatalogMeta("lastVoucherUpdate"); saveCatalogSnapshotToCache(); } }
+
+function renderAdminVouchers() {
+  document.getElementById("adminVoucherList").innerHTML = vouchers.length ? vouchers.map(v => {
+    const dStr = v.discType === "flat" ? `Flat ₹${v.discount} OFF` : `${v.discount}% OFF`;
+    const uStr = v.maxUses > 0 ? `<span class="badge">${v.maxUses}x / User</span>` : "";
+    const fStr = v.firstTimeOnly ? `<span class="badge badge-pur">1st Order Only</span>` : "";
+    return `
+    <div class="list-item">
+      <div>
+        <strong>${escHtml(v.code)}</strong> <span class="badge badge-grn">${dStr}</span> ${uStr} ${fStr}
+        <div style="font-size:11px;color:#555;margin-top:2px;">Min Order: ₹${v.minOrder}</div>
+      </div>
+      <button class="btn-sm" style="background:var(--d);" onclick="deleteVoucher('${v.id}')">X</button>
+    </div>`;
+  }).join("") : `<p style="color:var(--m);font-size:12px;">No vouchers yet.</p>`;
+}
+
+// --- USERS, CUSTOMER PIN RESET & ORDER STATS ---
+async function resetCustomerPin(mob) {
+  const np = prompt(`Enter new 4-digit PIN for ${mob}:`);
+  if (np === null) return;
+  const cleanPin = np.trim();
+  if (!/^\d{4}$/.test(cleanPin)) {
+    alert("Please enter exact 4 digits (Ex: 1234).");
+    return;
+  }
+  await db.collection("customers").doc(mob).set({ mobile: mob, pin: cleanPin }, { merge: true });
+  const c = customers.find(x => x.mobile === mob);
+  if (c) c.pin = cleanPin;
+  renderAdminCustomers();
+  showToast(`✓ PIN updated to ${cleanPin}`);
+}
+
+async function toggleBlockCustomer(mob, sb) { await db.collection("customers").doc(mob).set({ mobile: mob, blocked: sb }, { merge: true }); await loadAdminRecords(false); }
+async function deleteCustomer(mob) { if (confirm("Delete user " + mob + "?")) { await db.collection("customers").doc(mob).delete(); await loadAdminRecords(false); } }
+async function manualBlockCustomer() {
+  const mob = document.getElementById("manualBlockNum").value.replace(/\D/g, "");
+  if (mob.length !== 10) { alert("Enter a valid 10-digit mobile number."); return; }
+  await db.collection("customers").doc(mob).set({ mobile: mob, name: "Blocked Number", blocked: true }, { merge: true });
+  document.getElementById("manualBlockNum").value = ""; await loadAdminRecords(false); showToast("✓ " + mob + " blocked!");
+}
+
+function renderAdminCustomers() {
+  const statsMap = {};
+  orders.forEach(o => {
+    const m = String(o.mobile || "");
+    if (!m) return;
+    if (!statsMap[m]) statsMap[m] = { count: 0, spent: 0 };
+    statsMap[m].count++;
+    statsMap[m].spent += Number(o.totalAmt) || 0;
+  });
+
+  document.getElementById("adminCustList").innerHTML = customers.length ? customers.map(c => {
+    const st = statsMap[c.mobile] || { count: 0, spent: 0 };
+    const pinBadge = c.pin ? `<span class="badge badge-pur">PIN: ${escHtml(c.pin)}</span>` : `<span class="badge badge-org">No PIN</span>`;
+    return `
+    <div class="list-item"><div><div style="font-weight:700;font-size:13px;">${escHtml(c.mobile)} ${pinBadge} ${c.blocked ? '<span class="badge badge-red">BLOCKED</span>' : ''}</div>
+    <div style="font-size:11px;color:#555;">${escHtml(c.name || 'Customer')} • <strong>Orders: ${st.count} | Total: ₹${st.spent}</strong></div></div>
+    <div style="display:flex;gap:4px;">
+      <button class="btn-sm" style="background:var(--p);" onclick="resetCustomerPin('${c.mobile}')">PIN</button>
+      <button class="btn-sm" style="background:${c.blocked ? 'var(--s)' : 'var(--d)'};" onclick="toggleBlockCustomer('${c.mobile}', ${!c.blocked})">${c.blocked ? 'Unblock' : 'Block'}</button>
+      <button class="btn-sm" style="background:#6b7280;" onclick="deleteCustomer('${c.mobile}')">Del</button>
+    </div></div>`;
+  }).join("") : `<p style="color:var(--m);font-size:12px;">No registered users yet.</p>`;
+}
+
+async function deleteOrder(id) { if (confirm("Delete this order?")) { await db.collection("orders").doc(id).delete(); await loadAdminRecords(false); } }
+
+function setAdminOrdFilter(st) {
+  adminOrdStatusFilter = st;
+  document.querySelectorAll("#adminOrdFilterPills .ord-fpill").forEach(b => {
+    b.classList.toggle("active", b.getAttribute("data-st") === st);
+  });
+  renderAdminOrders();
+}
+
+async function toggleOrderItemPacked(ordIdx, itemIdx) {
+  const o = orders[ordIdx];
+  if (!o || !o.items || !o.items[itemIdx]) return;
+  o.items[itemIdx].packed = !o.items[itemIdx].packed;
+  renderAdminOrders();
+  db.collection("orders").doc(o.id).update({ items: o.items }).catch(() => {});
+}
+
+async function updateOrderPayment(ordIdx) {
+  const o = orders[ordIdx];
+  if (!o) return;
+  const total = Number(o.totalAmt) || 0;
+  const curPaid = Number(o.paidAmt) || 0;
+  const inp = prompt(`Bill Total: ₹${total}\nCurrently Paid: ₹${curPaid}\n\nEnter total amount received so far (or ${total} for Full Paid):`, String(curPaid === 0 ? total : curPaid));
+  if (inp === null) return;
+  const nextPaid = Math.max(0, Math.min(total, Number(inp) || 0));
+  await db.collection("orders").doc(o.id).update({ paidAmt: nextPaid });
+  o.paidAmt = nextPaid;
+  renderAdminOrders();
+  showToast(nextPaid >= total ? "✓ Marked Fully Paid!" : `✓ Paid ₹${nextPaid} saved!`);
+}
+
+function sendPaymentReminderWA(ordIdx) {
+  const o = orders[ordIdx];
+  if (!o) return;
+  const total = Number(o.totalAmt) || 0;
+  const paid = Number(o.paidAmt) || 0;
+  const baki = Math.max(0, total - paid);
+  const dt = o.createdAt && o.createdAt.toDate ? o.createdAt.toDate().toLocaleDateString("en-IN") : "";
+  const msg = `Namaste ${o.customerName || 'Ji'},\n${appSettings.shopName} se aapke bill${dt ? ' (' + dt + ')' : ''} ka payment reminder:\n\nTotal Bill: ₹${total}${paid > 0 ? '\nJama: ₹' + paid : ''}\nBaki Rakam: ₹${baki}\n\nKripya baki payment jaldi clear kar dein. Dhanyawad!`;
+  const n = String(o.mobile).replace(/\D/g, ""), waNum = n.length === 10 ? "91" + n : n;
+  window.open(`https://wa.me/${waNum}?text=${encodeURIComponent(msg)}`, "_blank");
+}
+
+function sendDispatchMsgWA(ordIdx) {
+  const o = orders[ordIdx];
+  if (!o) return;
+  let nag = o.cartons || "";
+  let tr = o.transportName || "";
+  if (!nag) {
+    nag = prompt("Enter Carton / Nag (Ex: 2 Nag):", "1 Nag") || "";
+    if (!nag) return;
+  }
+  if (!tr) {
+    tr = prompt("Enter Bus / Transport Name:", "") || "";
+  }
+  if (nag !== o.cartons || tr !== o.transportName) {
+    o.cartons = nag; o.transportName = tr;
+    db.collection("orders").doc(o.id).update({ cartons: nag, transportName: tr }).catch(() => {});
+    renderAdminOrders();
+  }
+  const msg = `Namaste ${o.customerName || 'Ji'},\nAapka order (${nag})${tr ? ' ' + tr + ' se' : ''} dispatch kar diya gaya hai.\nFinal Bill: ₹${o.totalAmt} (${o.totalPcs} pcs)\n\n— ${appSettings.shopName}`;
+  const n = String(o.mobile).replace(/\D/g, ""), waNum = n.length === 10 ? "91" + n : n;
+  window.open(`https://wa.me/${waNum}?text=${encodeURIComponent(msg)}`, "_blank");
+}
+
+function openPickingListModal() {
+  const activeOrds = orders.filter(o => (o.status || "New") === "New" || o.status === "Accepted");
+  const body = document.getElementById("pickingListBody");
+  if (!activeOrds.length) {
+    body.innerHTML = `<p style="color:var(--m);font-size:13px;text-align:center;padding:16px 0;">No New or Accepted orders to pack right now.</p>`;
+    document.getElementById("pickingListModal").classList.remove("hidden");
+    return;
+  }
+  const agg = {};
+  activeOrds.forEach(o => {
+    (o.items || []).forEach(it => {
+      const key = (it.prodId || it.name || "").toLowerCase();
+      if (!agg[key]) agg[key] = { name: it.name, prodId: it.prodId, totalQty: 0, shops: [] };
+      agg[key].totalQty += Number(it.qty) || 0;
+      agg[key].shops.push(`${o.customerName || o.mobile}: ${it.qty}`);
+    });
+  });
+  const list = Object.values(agg).sort((a, b) => b.totalQty - a.totalQty);
+  body.innerHTML = list.map(item => {
+    const imgSrc = getItemImg(item);
+    return `<div class="ord-item-row">
+      <img src="${imgSrc}" class="ord-thumb" onclick="zoomImage('${imgSrc}')" />
+      <div style="flex:1;">
+        <div style="font-weight:700;font-size:13px;">${escHtml(item.name)} — <span style="color:var(--p);">${item.totalQty} pcs</span></div>
+        <div style="font-size:11px;color:#555;">${escHtml(item.shops.join(" • "))}</div>
+      </div>
+    </div>`;
+  }).join("");
+  document.getElementById("pickingListModal").classList.remove("hidden");
+}
+
+function updateOrdersDashboard() {
+  const now = new Date();
+  const todayStr = now.toDateString();
+  const curMonth = now.getMonth(), curYear = now.getFullYear();
+  let todaySale = 0, monthSale = 0, totalBaki = 0, estProfit = 0;
+
+  orders.forEach(o => {
+    const amt = Number(o.totalAmt) || 0;
+    const paid = Number(o.paidAmt) || 0;
+    totalBaki += Math.max(0, amt - paid);
+    const d = o.createdAt && o.createdAt.toDate ? o.createdAt.toDate() : null;
+    if (d) {
+      if (d.toDateString() === todayStr) todaySale += amt;
+      if (d.getMonth() === curMonth && d.getFullYear() === curYear) monthSale += amt;
+    }
+    let cost = 0, sub = Number(o.subtotal) || amt;
+    (o.items || []).forEach(it => {
+      const b = getItemBuyRate(it);
+      if (b > 0) cost += (Number(it.qty) || 0) * b;
+    });
+    if (cost > 0) estProfit += Math.round((sub - (Number(o.discountAmt) || 0)) - cost);
+  });
+
+  const elT = document.getElementById("dashTodaySale");
+  if (elT) {
+    elT.innerText = "₹" + todaySale;
+    document.getElementById("dashMonthSale").innerText = "₹" + monthSale;
+    document.getElementById("dashTotalBaki").innerText = "₹" + totalBaki;
+    document.getElementById("dashEstProfit").innerText = "₹" + estProfit;
+  }
+}
+
+function renderAdminOrders() {
+  updateOrdersDashboard();
+  const newCount = orders.filter(o => (o.status || "New") === "New").length;
+  const ordTabBtn = document.getElementById("tabOrdBtn");
+  if (ordTabBtn) ordTabBtn.innerText = newCount > 0 ? `Orders (${newCount} New)` : "Orders";
+
+  const q = ((document.getElementById("adminOrdSearch") || {}).value || "").trim().toLowerCase();
+  const filtered = orders.map((o, idx) => ({ o, idx })).filter(({ o }) => {
+    const st = o.status || "New";
+    const baki = Math.max(0, (Number(o.totalAmt) || 0) - (Number(o.paidAmt) || 0));
+    if (adminOrdStatusFilter === "Unpaid") {
+      if (baki <= 0) return false;
+    } else if (adminOrdStatusFilter !== "ALL" && st !== adminOrdStatusFilter) {
+      return false;
+    }
+    if (q) {
+      const hay = `${o.customerName || ''} ${o.mobile || ''} ${o.market || ''} ${o.orderBy || ''}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
+  document.getElementById("adminOrdList").innerHTML = filtered.length ? filtered.map(({ o, idx }) => {
+    const dt = o.createdAt && o.createdAt.toDate ? o.createdAt.toDate().toLocaleString("en-IN") : "";
+    const st = o.status || "New";
+    const total = Number(o.totalAmt) || 0;
+    const paid = Number(o.paidAmt) || 0;
+    const baki = Math.max(0, total - paid);
+    const payBadge = baki === 0 ? `<span class="badge badge-grn">PAID</span>` : (paid > 0 ? `<span class="badge badge-org">Baki: ₹${baki}</span>` : `<span class="badge badge-red">UNPAID</span>`);
+
+    const itemsHtml = (o.items || []).map((i, k) => {
+      const imgSrc = getItemImg(i);
+      const isP = !!i.packed;
+      return `<div class="ord-item-row">
+        <input type="checkbox" class="pack-chk" ${isP ? 'checked' : ''} onchange="toggleOrderItemPacked(${idx}, ${k})" />
+        <img src="${imgSrc}" class="ord-thumb" onclick="zoomImage('${imgSrc}')" />
+        <div style="flex:1;" class="${isP ? 'packed-txt' : ''}">
+          <div style="font-weight:600;">${escHtml(i.name)}</div>
+          <div style="color:#555;font-size:11px;">Qty: <strong>${i.qty} pcs</strong> × ₹${i.price} = ₹${i.sub || (i.qty * i.price)}</div>
+          ${i.remark ? `<div style="color:#b45309;font-size:10px;font-weight:600;">Note: ${escHtml(i.remark)}</div>` : ''}
+        </div>
+      </div>`;
+    }).join("");
+    return `<div class="ord-card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:4px;margin-bottom:4px;">
+        <div>
+          <strong>${escHtml(o.customerName)} (${o.mobile})</strong>
+          ${o.market ? `<span class="badge">${escHtml(o.market)}</span>` : ''}
+          ${o.orderBy ? `<span class="badge badge-pur">By: ${escHtml(o.orderBy)}</span>` : ''}
+        </div>
+        <div style="display:flex;gap:4px;flex-shrink:0;">
+          <button class="btn-sm" style="background:var(--p);padding:3px 6px;" onclick="openAdminOrderEdit(${idx})">Edit/PDF</button>
+          <button class="btn-sm" style="background:var(--d);padding:3px 6px;" onclick="deleteOrder('${o.id}')">X</button>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:4px;">
+        <span style="color:#666;font-size:11px;">${dt} ${payBadge}</span>
+        <div style="display:flex;gap:3px;">
+          ${["New","Accepted","Completed"].map(sName => {
+            const active = st === sName;
+            const bg = active ? (sName === "Completed" ? "var(--s)" : (sName === "Accepted" ? "#d97706" : "var(--p)")) : "#e5e7eb";
+            const col = active ? "#fff" : "#374151";
+            return `<button type="button" class="btn-sm" style="background:${bg};color:${col};padding:2px 7px;font-size:11px;" onclick="changeOrderStatus(${idx}, '${sName}')">${sName}</button>`;
+          }).join("")}
+        </div>
+      </div>
+      ${o.remark ? `<div style="background:#fef3c7;color:#92400e;padding:5px 8px;border-radius:6px;font-size:11px;margin-bottom:6px;"><strong>Remark:</strong> ${escHtml(o.remark)}</div>` : ''}
+      ${(o.cartons || o.transportName) ? `<div style="background:#eff6ff;color:#1e3a8a;padding:4px 8px;border-radius:6px;font-size:11px;margin-bottom:6px;"><strong>🚚 Dispatch:</strong> ${escHtml(o.cartons || '')} ${escHtml(o.transportName || '')}</div>` : ''}
+      <div style="margin-bottom:6px;">${itemsHtml}</div>
+      <div style="font-weight:700;color:var(--p);margin-bottom:6px;">Final: ₹${total} (${o.totalPcs} pcs) ${o.discountAmt ? `<span style="color:var(--s);font-size:11px;">(Disc: -₹${o.discountAmt})</span>` : ''} ${Number(o.extraCharge) > 0 ? `<span style="color:#b45309;font-size:11px;">(+₹${o.extraCharge})</span>` : ''}</div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap;">
+        <button type="button" class="btn-sm" style="background:var(--s);padding:4px 8px;" onclick="shareOrDownloadPDF(orders[${idx}], true)">Send PDF</button>
+        <button type="button" class="btn-sm" style="background:#0f766e;padding:4px 8px;" onclick="updateOrderPayment(${idx})">💰 Pay (${paid > 0 ? '₹' + paid : 'Set'})</button>
+        ${baki > 0 ? `<button type="button" class="btn-sm" style="background:#d97706;padding:4px 8px;" onclick="sendPaymentReminderWA(${idx})">💬 Reminder</button>` : ''}
+        <button type="button" class="btn-sm" style="background:#4f46e5;padding:4px 8px;" onclick="sendDispatchMsgWA(${idx})">🚚 Dispatch Msg</button>
+      </div>
+    </div>`;
+  }).join("") : `<p style="color:var(--m);font-size:12px;">No orders found.</p>`;
+}
+
+// --- SETTINGS, IN-APP NOTICE & 1-CLICK BACKUP ---
+async function saveSettings() {
+  const data = {
+    shopName: document.getElementById("setShopName").value.trim() || "Raza Traders",
+    whatsapp: document.getElementById("setWhatsapp").value.trim(),
+    adminPin: document.getElementById("setAdminPin").value.trim() || "7860",
+    minOrderAmt: Number(document.getElementById("setMinOrderAmt").value) || 0,
+    catalogOn: document.getElementById("ctrlCatalogOn").checked,
+    strictSet: document.getElementById("ctrlStrictSet").checked
+  };
+  if (upLogoImg) data.logo = upLogoImg;
+  await db.collection("settings").doc("config").set(data, { merge: true });
+  appSettings = { ...appSettings, ...data };
+  applySettingsUI(); showToast("✓ Settings & Logo saved!");
+}
+
+async function saveNoticeSetting(isClear) {
+  const txt = isClear ? "" : document.getElementById("setNoticeText").value.trim();
+  const upd = { noticeText: txt, noticeUpdatedAt: txt ? Date.now() : 0 };
+  await db.collection("settings").doc("config").set(upd, { merge: true });
+  appSettings = { ...appSettings, ...upd };
+  document.getElementById("setNoticeText").value = txt;
+  showToast(isClear ? "✓ Notice cleared!" : "✓ Notice published!");
+}
+
+async function downloadFullBackup() {
+  const btn = document.getElementById("backupBtn");
+  btn.innerText = "Preparing Backup..."; btn.disabled = true;
+  try {
+    if (!orders.length || !customers.length) await loadAdminRecords(false);
+    const backupObj = {
+      exportedAt: new Date().toISOString(),
+      shopName: appSettings.shopName,
+      categories,
+      subCategories,
+      products,
+      vouchers,
+      customers,
+      orders
+    };
+    const blob = new Blob([JSON.stringify(backupObj, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `Raza_Traders_Backup_${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    showToast("✓ Backup downloaded!");
+  } catch (e) {
+    alert("Backup Error: " + e.message);
+  } finally {
+    btn.innerText = "📥 Download Full Data Backup"; btn.disabled = false;
+  }
+}
+
+initApp();
+</script>
+</body>
+</html>
