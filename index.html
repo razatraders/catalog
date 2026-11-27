@@ -127,6 +127,13 @@ label{display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#3741
 .add-item-box{background:#f8fafc;border:1px dashed #94a3b8;border-radius:9px;padding:10px;margin-bottom:10px}
 .field-item-edit{display:flex;gap:6px;margin-top:5px}
 .field-item-edit input{margin:0;padding:5px 7px;font-size:12px}
+#catPills{position:sticky;top:58px;z-index:40;background:var(--bg);padding:8px 0 6px;margin:-4px 0 8px;border-bottom:1px solid #e5e7eb}
+.compact-sel{padding:6px 8px!important;font-size:12px!important;margin-bottom:6px!important}
+.compact-lbl{font-size:11px!important;margin-bottom:2px!important}
+.num-grid-3{display:grid;grid-template-columns:repeat(3,minmax(0,95px));gap:8px;margin-bottom:8px}
+.num-grid-3 input{margin:0!important;padding:6px 6px!important;font-size:13px!important;text-align:center;font-weight:700}
+.bulk-exp-box{background:#eff6ff;border:1px solid #93c5fd;border-radius:9px;padding:9px;margin-bottom:10px}
+.prod-sel-chk{width:18px;height:18px;margin:0;accent-color:var(--p);cursor:pointer;flex-shrink:0}
 </style>
 </head>
 <body>
@@ -243,6 +250,7 @@ label{display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#3741
   <div><div style="font-size:12px;opacity:.85;"><span id="cartPcs">0</span> Pieces Selected</div><div style="font-size:16px;font-weight:700;">Total: ₹<span id="cartTotal">0</span></div></div>
   <button onclick="openCartModal()">View Order &gt;</button>
 </div>
+
 <!-- 3. ADMIN PANEL -->
 <div id="adminView" class="container hidden">
   <div class="tabs">
@@ -269,18 +277,22 @@ label{display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#3741
         </div>
       </div>
       <img id="imgPreview" class="preview-thumb hidden" />
-      <label>Category</label>
-      <select id="prodCat" onchange="onProdCatChange()"></select>
-      <div id="prodDynamicFilters" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;"></div>
+      <div style="max-width:220px;">
+        <label class="compact-lbl">Category</label>
+        <select id="prodCat" class="compact-sel" onchange="onProdCatChange()"></select>
+      </div>
+      <div id="prodDynamicFilters" style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:4px;"></div>
       <label>Model / Item Name</label>
       <input type="text" id="prodName" placeholder="Ex: Goggle Model 101" />
-      <div style="display:flex;gap:10px;">
-        <div style="flex:1;"><label>Purchase Rate (₹ - Private)</label><input type="number" id="prodBuyRate" placeholder="Ex: 42" oninput="calcSalePrice()" /></div>
-        <div style="flex:1;"><label>Sale Rate (₹ / pc) *</label><input type="number" id="prodPrice" placeholder="Auto or Manual" /></div>
+      <div class="num-grid-3">
+        <div><label class="compact-lbl">Purchase (₹)</label><input type="number" id="prodBuyRate" placeholder="0" oninput="calcSalePrice()" /></div>
+        <div><label class="compact-lbl">Expense (₹)</label><input type="number" id="prodExpense" placeholder="0" oninput="calcSalePrice()" /></div>
+        <div><label class="compact-lbl">Landing (₹)</label><input type="number" id="prodLanding" placeholder="Auto" readonly /></div>
       </div>
-      <div style="display:flex;gap:10px;">
-        <div style="flex:1;"><label>Margin (% - Sticky)</label><input type="number" id="prodMargin" value="30" placeholder="30" oninput="calcSalePrice()" /></div>
-        <div style="flex:1;"><label>MOQ (1 Set Pcs - Sticky) *</label><input type="number" id="prodMoq" value="6" placeholder="6" /></div>
+      <div class="num-grid-3">
+        <div><label class="compact-lbl">Margin (%)</label><input type="number" id="prodMargin" value="30" placeholder="30" oninput="calcSalePrice()" /></div>
+        <div><label class="compact-lbl">Sale Rate (₹)*</label><input type="number" id="prodPrice" placeholder="Auto" /></div>
+        <div><label class="compact-lbl">MOQ (Set)*</label><input type="number" id="prodMoq" value="6" placeholder="6" /></div>
       </div>
       <label>Description (Optional)</label>
       <textarea id="prodDesc" placeholder="Ex: TR90 frame, UV400 lens, mix colors"></textarea>
@@ -292,8 +304,22 @@ label{display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#3741
         <h3 id="adminProdCountTitle">All Products (0)</h3>
         <button type="button" id="adminOosFilterBtn" class="btn-sm" style="background:#6b7280;" onclick="toggleAdminOosFilter()">Out of Stock Only</button>
       </div>
-      <select id="adminFilterCat" onchange="renderAdminProducts()"></select>
-      <input type="text" id="adminSearchProd" placeholder="Search model or item in list..." oninput="renderAdminProducts()" />
+      <select id="adminFilterCat" class="compact-sel" onchange="renderAdminProducts()"></select>
+      <input type="text" id="adminSearchProd" placeholder="Search model or item in list..." oninput="renderAdminProducts()" style="margin-bottom:8px;" />
+      <div class="bulk-exp-box">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:6px;flex-wrap:wrap;">
+          <span style="font-size:12px;font-weight:700;color:#1e3a8a;">⚡ Bulk Expense (<span id="bulkSelCount">0</span> Selected)</span>
+          <div style="display:flex;gap:4px;">
+            <button type="button" class="btn-sm" style="background:var(--p);padding:4px 8px;font-size:11px;" onclick="selectAllVisibleProducts()">Select All</button>
+            <button type="button" class="btn-sm" style="background:#6b7280;padding:4px 8px;font-size:11px;" onclick="clearSelectedProducts()">Clear</button>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+          <input type="number" id="bulkExpVal" placeholder="Exp ₹/pc" style="margin:0;width:88px;padding:6px;font-size:12px;font-weight:700;text-align:center;" />
+          <button type="button" class="btn-sm" style="background:var(--s);padding:6px 8px;font-size:11px;flex:1;" onclick="applyBulkExpense(true)">Apply (Sale Rate बदलें)</button>
+          <button type="button" class="btn-sm" style="background:#0f766e;padding:6px 8px;font-size:11px;flex:1;" onclick="applyBulkExpense(false)">Apply (Sale Rate वही रखें)</button>
+        </div>
+      </div>
       <div id="adminProdList"></div>
     </div>
   </div>
@@ -430,6 +456,7 @@ label{display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#3741
       <img id="logoPreview" class="preview-thumb hidden" style="background:#000;" />
       <div class="toggle-row"><span>Catalog Active (ON/OFF)</span><input type="checkbox" id="ctrlCatalogOn" checked /></div>
       <div class="toggle-row"><span>Strict Set Order (+MOQ)</span><input type="checkbox" id="ctrlStrictSet" checked /></div>
+      <div class="toggle-row"><span>Market Order: Name &amp; Mobile Both Mandatory</span><input type="checkbox" id="ctrlFieldBothMandatory" /></div>
       <div style="margin-top:12px;">
         <label>Consignor / Shop Name</label><input type="text" id="setShopName" placeholder="Raza Traders" />
         <label>WhatsApp Number (10 Digits)</label><input type="tel" id="setWhatsapp" placeholder="Ex: 9876543210" />
@@ -510,7 +537,7 @@ label{display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#3741
       <div id="modalDiscRow" class="hidden" style="color:var(--s);font-weight:600;">Total Discount: -₹<span id="modalDiscAmt">0</span></div>
       <div style="font-weight:700;font-size:16px;margin-top:4px;">Grand Total: ₹<span id="modalTotal">0</span></div>
     </div>
-    <label>Consignee Mobile Number (10 Digits) *</label>
+    <label id="custMobileOrderLbl">Consignee Mobile Number (10 Digits) *</label>
     <input type="tel" id="custMobileOrder" maxlength="10" placeholder="Ex: 9876543210" />
     <label id="custNameLbl">Consignee / Shop Name (Optional)</label>
     <input type="text" id="custName" placeholder="Ex: Sharma Opticals" />
@@ -615,6 +642,7 @@ label{display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#3741
 
 <div id="zoomModal" class="modal-bg hidden" onclick="this.classList.add('hidden')"><img id="zoomImg" class="img-zoom" /></div>
 <div id="toastMsg" class="toast hidden"></div>
+
 <script>
 // --- PWA SERVICE WORKER & UNIVERSAL AUTO-LOGIN (CHROME + INSTALLED APP) ---
 function isInstalledApp() {
@@ -817,9 +845,16 @@ function bumpCatalogMeta(targetKey) {
 
 let appSettings = {
   shopName: "Raza Traders", whatsapp: "", adminPin: "7860",
-  catalogOn: true, strictSet: true, logo: "", adBanner: "", adBanners: [],
+  catalogOn: true, strictSet: true, fieldBothMandatory: false, logo: "", adBanner: "", adBanners: [],
   minOrderAmt: 0, noticeText: "", noticeUpdatedAt: 0, adminDevices: [], salesmen: []
 };
+let selectedProdIds = new Set();
+function syncStickyCatTop() {
+  const hdr = document.querySelector("header");
+  const pills = document.getElementById("catPills");
+  if (hdr && pills) pills.style.top = hdr.offsetHeight + "px";
+}
+window.addEventListener("resize", syncStickyCatTop);
 let categories = [], subCategories = [], products = [], orders = [], customers = [], vouchers = [];
 let unlockedCatIds = new Set(), activeCategory = null, activeFilters = {}, newOnlyFilter = false;
 let activeMobile = "", activeCustName = "", authMode = "login", cart = {};
@@ -935,6 +970,8 @@ function applySettingsUI() {
   document.getElementById("setNoticeText").value = appSettings.noticeText || "";
   document.getElementById("ctrlCatalogOn").checked = appSettings.catalogOn !== false;
   document.getElementById("ctrlStrictSet").checked = appSettings.strictSet !== false;
+  const fbm = document.getElementById("ctrlFieldBothMandatory");
+  if (fbm) fbm.checked = appSettings.fieldBothMandatory === true;
   try {
     localStorage.setItem("rt_shop_name", appSettings.shopName || "Raza Traders");
     if (appSettings.logo) localStorage.setItem("rt_shop_logo", appSettings.logo);
@@ -1003,7 +1040,6 @@ async function loadSubCategories() {
   subCategories = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(s => !s.deleted);
   renderAdminFilterConfig(); renderProdFilterInputs(getCurrentProdFilters());
 }
-
 function sortProductsList() {
   products.sort((a, b) => (b._order || 0) - (a._order || 0));
 }
@@ -1413,6 +1449,7 @@ function renderInlineAd() {
 }
 
 function renderCatPills() {
+  syncStickyCatTop();
   document.getElementById("catPills").innerHTML = categories.map(c => {
     const isUnl = unlockedCatIds.has(c.id), isAct = activeCategory && c.id === activeCategory.id;
     const icon = c.offSeason ? "⏸️" : (isUnl ? "🔓" : "🔒");
@@ -2004,11 +2041,21 @@ function openCartModal() {
     if (!p) continue;
     const effRate = getEffectiveCartPrice(p);
     const remVal = cartItemRemarks[id] || "";
+    const imgSrc = p.image || "https://via.placeholder.com/60?text=No+Img";
+    const fVals = getProductFilterValues(p);
+    const tagStr = fVals.length ? `<div style="font-size:10px;color:#4338ca;font-weight:600;margin-top:1px;">${escHtml(fVals.join(" • "))}</div>` : "";
     if (isField) {
       html += `<div style="padding:7px 0;border-bottom:1px solid #e5e7eb;">
-        <div style="display:flex;justify-content:space-between;align-items:center;">
-          <span><strong>${escHtml(p.name)}</strong> <small style="color:#666;">(${cart[id]} pcs)</small></span>
-          <strong id="cartItemSub_${id}">₹${cart[id] * effRate}</strong>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <img src="${imgSrc}" class="ord-thumb" onclick="zoomImage('${imgSrc}')" />
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;">
+              <span style="font-weight:700;font-size:13px;">${escHtml(p.name)} <small style="color:#666;font-weight:500;">(${cart[id]} pcs)</small></span>
+              <strong id="cartItemSub_${id}" style="white-space:nowrap;">₹${cart[id] * effRate}</strong>
+            </div>
+            <div style="font-size:10px;color:#6b7280;">${escHtml(p.categoryName || '')}</div>
+            ${tagStr}
+          </div>
         </div>
         <div class="field-item-edit">
           <input type="number" value="${effRate}" placeholder="Rate ₹" style="width:82px;" oninput="onFieldCartRateChange('${id}', this.value)" />
@@ -2016,13 +2063,23 @@ function openCartModal() {
         </div>
       </div>`;
     } else {
-      html += `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f3f4f6;"><span>${escHtml(p.name)} <small style="color:#666;">[${escHtml(p.categoryName)}]</small><br>${cart[id]} pcs x ₹${p.price}</span><strong>₹${cart[id]*Number(p.price)}</strong></div>`;
+      html += `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f3f4f6;">
+        <img src="${imgSrc}" class="ord-thumb" onclick="zoomImage('${imgSrc}')" />
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:600;">${escHtml(p.name)} <small style="color:#666;">[${escHtml(p.categoryName)}]</small></div>
+          ${tagStr}
+          <div style="font-size:11px;color:#555;">${cart[id]} pcs x ₹${p.price}</div>
+        </div>
+        <strong>₹${cart[id]*Number(p.price)}</strong>
+      </div>`;
     }
   }
   document.getElementById("cartItemsList").innerHTML = html;
   document.getElementById("voucherMsg").innerText = "";
   document.getElementById("custMarketBox").classList.toggle("hidden", !isField);
-  document.getElementById("custNameLbl").innerText = isField ? "Shop / Party Name *" : "Consignee / Shop Name (Optional)";
+  const bothReq = appSettings.fieldBothMandatory === true;
+  document.getElementById("custMobileOrderLbl").innerText = isField ? (bothReq ? "Consignee Mobile Number (10 Digits) *" : "Mobile Number (10 Digits - Optional if Name given)") : "Consignee Mobile Number (10 Digits) *";
+  document.getElementById("custNameLbl").innerText = isField ? (bothReq ? "Shop / Party Name *" : "Shop / Party Name (Optional if Mobile given)") : "Consignee / Shop Name (Optional)";
   document.getElementById("waSendBtn").innerText = isField ? "Save Market Order" : "Place Order & Notify on WhatsApp";
   const ordMobInp = document.getElementById("custMobileOrder");
   if (isField) {
@@ -2199,10 +2256,22 @@ function repeatCustomerOrder(idx) {
 async function sendCustomerOrder() {
   const isField = isFieldOrderMode();
   if (!isField && !appSettings.whatsapp) { alert("Admin WhatsApp number is not set."); return; }
-  const mob = isField ? document.getElementById("custMobileOrder").value.replace(/\D/g, "") : (activeMobile || document.getElementById("custMobileOrder").value.replace(/\D/g, ""));
-  if (mob.length !== 10) { alert("10-digit mobile number is required!"); return; }
-  const cName = document.getElementById("custName").value.trim() || "Customer";
-  if (isField && !document.getElementById("custName").value.trim()) { alert("Shop / Party Name is required!"); return; }
+  const rawMob = isField ? document.getElementById("custMobileOrder").value.replace(/\D/g, "") : (activeMobile || document.getElementById("custMobileOrder").value.replace(/\D/g, ""));
+  const rawName = document.getElementById("custName").value.trim();
+  if (isField) {
+    const bothReq = appSettings.fieldBothMandatory === true;
+    if (bothReq) {
+      if (rawMob.length !== 10) { alert("10-digit mobile number is required!"); return; }
+      if (!rawName) { alert("Shop / Party Name is required!"); return; }
+    } else {
+      if (rawMob.length > 0 && rawMob.length !== 10) { alert("Please enter a valid 10-digit mobile number (or leave it blank if entering Shop Name)."); return; }
+      if (rawMob.length !== 10 && !rawName) { alert("Please enter either Shop / Party Name OR 10-digit Mobile Number!"); return; }
+    }
+  } else {
+    if (rawMob.length !== 10) { alert("10-digit mobile number is required!"); return; }
+  }
+  const mob = rawMob;
+  const cName = rawName || (mob ? "Customer" : "Walk-in Party");
   const market = isField ? (document.getElementById("custMarket").value.trim()) : "";
   const remark = document.getElementById("custRemark").value.trim();
 
@@ -2245,10 +2314,11 @@ async function sendCustomerOrder() {
     savedOffline = true;
   } else {
     try {
-      const [oRef] = await Promise.all([
-        db.collection("orders").add(newOrdData),
-        db.collection("customers").doc(mob).set({ mobile: mob, name: cName, lastSeen: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true })
-      ]);
+      const writes = [db.collection("orders").add(newOrdData)];
+      if (mob && mob.length === 10) {
+        writes.push(db.collection("customers").doc(mob).set({ mobile: mob, name: cName, lastSeen: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true }));
+      }
+      const [oRef] = await Promise.all(writes);
       if (customerPastOrders !== null) {
         customerPastOrders.unshift({ id: oRef.id, ...newOrdData, createdAt: { toDate: () => new Date(), toMillis: () => Date.now() } });
       }
@@ -2288,6 +2358,7 @@ function getItemImg(it) {
   if (!p) p = products.find(x => x.name === it.name);
   return (p && p.image) ? p.image : "https://via.placeholder.com/60?text=No+Img";
 }
+
 // --- ADMIN ORDER STATUS, EDIT (QTY + RATE + DELETE ITEM) & PDF SHARE ---
 async function changeOrderStatus(idx, newStatus) {
   const o = orders[idx];
@@ -2298,10 +2369,17 @@ async function changeOrderStatus(idx, newStatus) {
   showToast(`✓ Order marked ${newStatus}`);
 }
 
+function getProductLandingCost(p) {
+  if (!p) return 0;
+  const buy = Number(p.buyRate) || 0;
+  const exp = Number(p.expense) || 0;
+  if (buy > 0 || exp > 0) return Math.round((buy + exp) * 100) / 100;
+  return Number(p.landingCost) || 0;
+}
 function getItemBuyRate(it) {
   let p = it.prodId ? products.find(x => x.id === it.prodId) : null;
   if (!p) p = products.find(x => x.name === it.name);
-  return (p && Number(p.buyRate) > 0) ? Number(p.buyRate) : 0;
+  return getProductLandingCost(p);
 }
 
 function renderAoAddDropdown() {
@@ -2351,7 +2429,6 @@ function openAdminOrderEdit(idx) {
   renderAdminOrderEditRows();
   document.getElementById("adminOrdModal").classList.remove("hidden");
 }
-
 function renderAdminOrderEditRows() {
   document.getElementById("aoItemsBox").innerHTML = editingOrderItems.map((it, i) => {
     const imgSrc = getItemImg(it);
@@ -2541,11 +2618,15 @@ function switchTab(tab) {
 }
 
 function calcSalePrice() {
-  const buy = parseFloat(document.getElementById("prodBuyRate").value);
+  const buy = parseFloat(document.getElementById("prodBuyRate").value) || 0;
+  const exp = parseFloat(document.getElementById("prodExpense").value) || 0;
   const mar = parseFloat(document.getElementById("prodMargin").value);
-  if (!isNaN(buy) && buy > 0) {
+  const landing = Math.round((buy + exp) * 100) / 100;
+  const landEl = document.getElementById("prodLanding");
+  if (landEl) landEl.value = landing > 0 ? landing : "";
+  if (landing > 0) {
     const m = isNaN(mar) ? 0 : mar;
-    document.getElementById("prodPrice").value = Math.round(buy * (1 + m / 100));
+    document.getElementById("prodPrice").value = Math.round(landing * (1 + m / 100));
   }
 }
 
@@ -2644,6 +2725,8 @@ async function saveProduct() {
   const filters = getCurrentProdFilters();
   const subCategory = Object.values(filters).join(", ");
   const buyRate = Number(document.getElementById("prodBuyRate").value) || 0;
+  const expense = Number(document.getElementById("prodExpense").value) || 0;
+  const landingCost = Math.round((buyRate + expense) * 100) / 100;
   const marginVal = document.getElementById("prodMargin").value;
   const marginPct = Number(marginVal) || 0;
   const price = Number(document.getElementById("prodPrice").value);
@@ -2659,7 +2742,7 @@ async function saveProduct() {
   try {
     const catObj = categories.find(c => c.id === categoryId);
     const nowMs = Date.now();
-    const data = { name, description, categoryId, categoryName: catObj ? catObj.name : "", filters, subCategory, buyRate, marginPct, price, moq, updatedAtMs: nowMs, deleted: false };
+    const data = { name, description, categoryId, categoryName: catObj ? catObj.name : "", filters, subCategory, buyRate, expense, landingCost, marginPct, price, moq, updatedAtMs: nowMs, deleted: false };
     if (upProdImg) data.image = upProdImg;
     if (editId) {
       await db.collection("products").doc(editId).update(data);
@@ -2767,6 +2850,9 @@ function fillProdFormFromObj(p, isEdit) {
   }
   renderProdFilterInputs(existingFilters);
   document.getElementById("prodBuyRate").value = p.buyRate || "";
+  document.getElementById("prodExpense").value = p.expense || "";
+  const lcVal = getProductLandingCost(p);
+  document.getElementById("prodLanding").value = lcVal > 0 ? lcVal : "";
   document.getElementById("prodMargin").value = p.marginPct !== undefined ? p.marginPct : stickyMargin;
   document.getElementById("prodPrice").value = p.price;
   document.getElementById("prodMoq").value = p.moq || stickyMoq;
@@ -2795,7 +2881,7 @@ function copyProduct(id) {
 }
 
 function resetProdForm(clearAll) {
-  ["editProdId","prodName","prodDesc","prodBuyRate","prodPrice"].forEach(id => document.getElementById(id).value = "");
+  ["editProdId","prodName","prodDesc","prodBuyRate","prodExpense","prodLanding","prodPrice"].forEach(id => document.getElementById(id).value = "");
   document.getElementById("prodMargin").value = stickyMargin;
   document.getElementById("prodMoq").value = stickyMoq;
   document.getElementById("prodFormTitle").innerText = "Add New Product";
@@ -2829,9 +2915,90 @@ function toggleAdminOosFilter() {
   renderAdminProducts();
 }
 
-function renderAdminProducts() {
+function getFilteredAdminProducts() {
   const f = document.getElementById("adminFilterCat").value || "ALL";
   const q = (document.getElementById("adminSearchProd").value || "").trim().toLowerCase();
+  let list = f === "ALL" ? products : products.filter(p => p.categoryId === f);
+  if (adminOosOnly) list = list.filter(p => !!p.outOfStock);
+  if (q) {
+    list = list.filter(p => {
+      const fStr = getProductFilterValues(p).join(" ").toLowerCase();
+      return p.name.toLowerCase().includes(q) || (p.description || "").toLowerCase().includes(q) || fStr.includes(q);
+    });
+  }
+  return list;
+}
+
+function updateBulkSelCountUI() {
+  const el = document.getElementById("bulkSelCount");
+  if (el) el.innerText = selectedProdIds.size;
+}
+
+function toggleSelectProduct(id) {
+  if (selectedProdIds.has(id)) selectedProdIds.delete(id);
+  else selectedProdIds.add(id);
+  updateBulkSelCountUI();
+}
+
+function selectAllVisibleProducts() {
+  getFilteredAdminProducts().forEach(p => selectedProdIds.add(p.id));
+  renderAdminProducts();
+}
+
+function clearSelectedProducts() {
+  selectedProdIds.clear();
+  renderAdminProducts();
+}
+
+async function applyBulkExpense(updateSaleRate) {
+  if (!selectedProdIds.size) { alert("Pehle neeche list se kam se kam 1 product select (☑) karein."); return; }
+  const expRaw = document.getElementById("bulkExpVal").value;
+  if (expRaw === "" || isNaN(Number(expRaw)) || Number(expRaw) < 0) { alert("Valid Expense (₹ / pc) dalein (Ex: 3)."); return; }
+  const expVal = Number(expRaw);
+  const modeMsg = updateSaleRate
+    ? `Selected ${selectedProdIds.size} items mein Expense ₹${expVal} jod kar Landing Cost + Margin % se NAYA SALE RATE set karein?`
+    : `Selected ${selectedProdIds.size} items mein sirf Expense ₹${expVal} aur Landing Cost update karein? (Purana Sale Rate nahi badlega)`;
+  if (!confirm(modeMsg)) return;
+
+  const targetIds = Array.from(selectedProdIds);
+  const nowMs = Date.now();
+  let updatedCount = 0;
+  try {
+    for (let i = 0; i < targetIds.length; i += 400) {
+      const chunk = targetIds.slice(i, i + 400);
+      const batch = db.batch();
+      chunk.forEach(pid => {
+        const p = products.find(x => x.id === pid);
+        if (!p) return;
+        const buy = Number(p.buyRate) || 0;
+        const landingCost = Math.round((buy + expVal) * 100) / 100;
+        const upd = { expense: expVal, landingCost, updatedAtMs: nowMs };
+        if (updateSaleRate && landingCost > 0) {
+          const mar = Number(p.marginPct) || 0;
+          upd.price = Math.round(landingCost * (1 + mar / 100));
+        }
+        batch.update(db.collection("products").doc(pid), upd);
+        p.expense = expVal;
+        p.landingCost = landingCost;
+        p.updatedAtMs = nowMs;
+        if (upd.price !== undefined) p.price = upd.price;
+        updatedCount++;
+      });
+      await batch.commit();
+    }
+    selectedProdIds.clear();
+    document.getElementById("bulkExpVal").value = "";
+    renderAdminProducts();
+    bumpCatalogMeta("lastProdUpdate");
+    saveCatalogSnapshotToCache();
+    showToast(`✓ ${updatedCount} items updated!`);
+  } catch (e) {
+    alert("Bulk Update Error: " + e.message);
+  }
+}
+
+function renderAdminProducts() {
+  const f = document.getElementById("adminFilterCat").value || "ALL";
   const catFiltered = f === "ALL" ? products : products.filter(p => p.categoryId === f);
 
   const countTitle = document.getElementById("adminProdCountTitle");
@@ -2843,26 +3010,24 @@ function renderAdminProducts() {
     countTitle.innerText = `${cName} Products (${catFiltered.length} / Total ${products.length})`;
   }
 
-  let list = catFiltered;
-  if (adminOosOnly) list = list.filter(p => !!p.outOfStock);
-  if (q) {
-    list = list.filter(p => {
-      const fStr = getProductFilterValues(p).join(" ").toLowerCase();
-      return p.name.toLowerCase().includes(q) || (p.description || "").toLowerCase().includes(q) || fStr.includes(q);
-    });
-  }
+  const list = getFilteredAdminProducts();
+  updateBulkSelCountUI();
 
   document.getElementById("adminProdList").innerHTML = list.length ? list.map((p, idx) => {
     const fVals = getProductFilterValues(p);
     const fBadges = fVals.map(v => `<span class="badge badge-pur">${escHtml(v)}</span>`).join(" ");
+    const isSel = selectedProdIds.has(p.id);
+    const lc = getProductLandingCost(p);
+    const costInfo = lc > 0 ? `(Land: ₹${lc}${Number(p.expense) > 0 ? ' [Buy ₹' + (Number(p.buyRate)||0) + '+Exp ₹' + p.expense + ']' : ''} +${p.marginPct || 0}%)` : '';
     return `
     <div class="list-item" style="flex-direction:column;align-items:stretch;gap:6px;">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
         <div style="display:flex;align-items:center;gap:8px;min-width:0;">
+          <input type="checkbox" class="prod-sel-chk" ${isSel ? 'checked' : ''} onchange="toggleSelectProduct('${p.id}')" />
           <img src="${p.image || 'https://via.placeholder.com/60'}" />
           <div style="min-width:0;">
             <div style="font-weight:600;font-size:13px;">${escHtml(p.name)} ${p.outOfStock ? '<span class="badge badge-red">OOS</span>' : ''} ${fBadges}</div>
-            <div style="font-size:11px;color:#555;">Sale: ₹${p.price} ${p.buyRate ? `(Buy: ₹${p.buyRate} +${p.marginPct || 0}%)` : ''} | Set: ${p.moq} | <span class="badge">${escHtml(p.categoryName)}</span></div>
+            <div style="font-size:11px;color:#555;">Sale: ₹${p.price} ${costInfo} | Set: ${p.moq} | <span class="badge">${escHtml(p.categoryName)}</span></div>
           </div>
         </div>
       </div>
@@ -3089,8 +3254,8 @@ function renderProdFilterInputs(selectedMap = {}) {
     const curVal = selectedMap[gName] || "";
     const optHtml = `<option value="">None</option>` + opts.map(o => `<option value="${escHtml(o.name)}" ${curVal.toLowerCase() === o.name.toLowerCase() ? 'selected' : ''}>${escHtml(o.name)}</option>`).join("");
     return `<div>
-      <label>${escHtml(gName)}</label>
-      <select class="prod-dyn-filter" data-group="${escHtml(gName)}">${optHtml}</select>
+      <label class="compact-lbl">${escHtml(gName)}</label>
+      <select class="prod-dyn-filter compact-sel" data-group="${escHtml(gName)}">${optHtml}</select>
     </div>`;
   }).join("");
 }
@@ -3276,7 +3441,9 @@ function sendPaymentReminderWA(ordIdx) {
   const baki = Math.max(0, total - paid);
   const dt = o.createdAt && o.createdAt.toDate ? o.createdAt.toDate().toLocaleDateString("en-IN") : "";
   const msg = `Namaste ${o.customerName || 'Ji'},\n${appSettings.shopName} se aapke bill${dt ? ' (' + dt + ')' : ''} ka payment reminder:\n\nTotal Bill: ₹${total}${paid > 0 ? '\nJama: ₹' + paid : ''}\nBaki Rakam: ₹${baki}\n\nKripya baki payment jaldi clear kar dein. Dhanyawad!`;
-  const n = String(o.mobile).replace(/\D/g, ""), waNum = n.length === 10 ? "91" + n : n;
+  const n = String(o.mobile || "").replace(/\D/g, "");
+  if (n.length < 10) { alert("Mobile number is not saved in this order."); return; }
+  const waNum = n.length === 10 ? "91" + n : n;
   window.open(`https://wa.me/${waNum}?text=${encodeURIComponent(msg)}`, "_blank");
 }
 
@@ -3298,7 +3465,9 @@ function sendDispatchMsgWA(ordIdx) {
     renderAdminOrders();
   }
   const msg = `Namaste ${o.customerName || 'Ji'},\nAapka order (${nag})${tr ? ' ' + tr + ' se' : ''} dispatch kar diya gaya hai.\nFinal Bill: ₹${o.totalAmt} (${o.totalPcs} pcs)\n\n— ${appSettings.shopName}`;
-  const n = String(o.mobile).replace(/\D/g, ""), waNum = n.length === 10 ? "91" + n : n;
+  const n = String(o.mobile || "").replace(/\D/g, "");
+  if (n.length < 10) { alert("Mobile number is not saved in this order."); return; }
+  const waNum = n.length === 10 ? "91" + n : n;
   window.open(`https://wa.me/${waNum}?text=${encodeURIComponent(msg)}`, "_blank");
 }
 
@@ -3453,7 +3622,8 @@ async function saveSettings() {
     adminPin: document.getElementById("setAdminPin").value.trim() || "7860",
     minOrderAmt: Number(document.getElementById("setMinOrderAmt").value) || 0,
     catalogOn: document.getElementById("ctrlCatalogOn").checked,
-    strictSet: document.getElementById("ctrlStrictSet").checked
+    strictSet: document.getElementById("ctrlStrictSet").checked,
+    fieldBothMandatory: !!(document.getElementById("ctrlFieldBothMandatory") && document.getElementById("ctrlFieldBothMandatory").checked)
   };
   if (upLogoImg) data.logo = upLogoImg;
   await db.collection("settings").doc("config").set(data, { merge: true });
